@@ -5,6 +5,7 @@ PROPOSAL_WRITE = "proposal.write"
 APPROVAL_WRITE = "approval.write"
 PROPOSAL_FINALIZE = "proposal.finalize"
 AUDIT_WRITE = "audit.write"
+AUDIT_READ = "audit.read"
 
 ALL_SCOPES = (
     PROPOSAL_READ,
@@ -12,4 +13,5 @@ ALL_SCOPES = (
     APPROVAL_WRITE,
     PROPOSAL_FINALIZE,
     AUDIT_WRITE,
+    AUDIT_READ,
 )

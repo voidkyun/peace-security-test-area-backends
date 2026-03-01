@@ -5,6 +5,7 @@ from shared.auth.permissions import RequireScope, require_scope
 from shared.auth.scopes import (
     ALL_SCOPES,
     APPROVAL_WRITE,
+    AUDIT_READ,
     AUDIT_WRITE,
     PROPOSAL_FINALIZE,
     PROPOSAL_READ,
@@ -23,5 +24,6 @@ __all__ = [
     "PROPOSAL_WRITE",
     "APPROVAL_WRITE",
     "PROPOSAL_FINALIZE",
+    "AUDIT_READ",
     "AUDIT_WRITE",
 ]
