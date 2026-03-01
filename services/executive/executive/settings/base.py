@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "shared.auth",
     "shared.proposals",
+    "exec",
 ]
 
 MIDDLEWARE = [
@@ -32,7 +33,9 @@ MIDDLEWARE = [
 
 SERVICE_JWT_SECRET = os.environ.get("SERVICE_JWT_SECRET", "dev-service-jwt-secret-change-in-production")
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "executive")
+ROOT_SERVICE_URL = os.environ.get("ROOT_SERVICE_URL", "").rstrip("/")
 SERVICE_JWT_EXEMPT_PATHS = ("/admin", "/schema", "/swagger")
+SERVICE_JWT_NO_EXEMPT_PREFIXES = ("/evaluations", "/exec/proposals")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
