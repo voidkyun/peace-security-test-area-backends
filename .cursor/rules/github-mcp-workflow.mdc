@@ -1,0 +1,59 @@
+---
+description: GitHub MCP を使った Issue 作成・実装・PR のワークフロー
+globs: 
+alwaysApply: false
+---
+
+# GitHub MCP ワークフロー（Issue → 実装 → PR）
+
+## 言語とエンコーディング（必ず守る）
+
+- **Issue と PR のタイトル・本文は日本語で記載する。** 英語で書かない。
+- **一時ファイルの保存**: タイトル用・本文用の一時ファイルは **UTF-8** で保存し、改行は **LF** にする。CRLF にしない。
+- **実行の流れ**: (1) 一時ファイルに書き出す → (2) そのファイルを読み取って `gh` や MCP に渡す → (3) **実行後に一時ファイルを必ず削除する。** ファイルを残さない。
+
+## デフォルトリポジトリ
+
+ユーザーがリポジトリを指定しない場合、GitHub MCP の `owner` / `repo` には以下を使う:
+
+- **owner**: `voidkyun`
+- **repo**: `peace-security-test-area-backends`
+
+（このプロジェクトの `origin` が `https://github.com/voidkyun/peace-security-test-area-backends.git` のため）
+
+## Issue 作成
+
+依頼例:「〇〇の Issue を作成して」
+
+- **日本語で記載**し、タイトル・本文は必ず一時ファイルに **UTF-8・LF** で書き出し、そのファイルを読み取って作成する。**作成後に一時ファイルを必ず削除する。**
+- **手順**:
+  1. タイトル用・本文用の一時ファイルを用意する（例: `.cursor/issue-title.txt`, `.cursor/issue-body.md`）。**UTF-8**、改行は **LF** で保存する。
+  2. **issue_write** の場合はファイルを読んで `title` / `body` に渡す。**gh** の場合は、タイトルを変数に読み（例: `$t = Get-Content .cursor/issue-title.txt -Raw -Encoding UTF8`）、本文は `--body-file` でファイルパスを直接指定する（パイプは使わない）。例: `gh issue create --title $t --body-file .cursor/issue-body.md`。
+  3. **Issue 作成後、用意した一時ファイルを削除する。**
+- リポジトリ未指定の場合は上記デフォルトを使う。
+
+## Issue をもとに実装して PR まで
+
+依頼例:「Issue #N を実装してブランチ切って PR まで」「#N を実装して main に PR を作成して」
+
+実行する手順:
+
+1. **Issue 取得**: **issue_read** で該当 Issue の `owner`/`repo`/`issue_number` を指定し、title と body を取得する。
+2. **ブランチ作成**: **create_branch** で `owner`/`repo`/`branch`（例: `feature/issue-N`）を指定。必要なら `from_branch: "main"`。
+3. **ローカルで作業**: `git fetch origin` のあと `git checkout <作成したブランチ名>`。Issue の内容に沿ってコードを編集する。
+4. **変更を GitHub に反映**:
+   - **案A**: ターミナルで `git add` / `git commit` / `git push origin <ブランチ名>`。
+   - **案B**: 変更したファイルの path と content を **push_files** に渡して push。
+5. **PR 作成**: タイトル・本文は **日本語** で書き、一時ファイルに **UTF-8・LF** で保存する。そのファイルを読み取って **create_pull_request** または **gh pr create** を実行する。Issue を閉じる場合は body に `Closes #N` を入れる。**実行後に一時ファイルを必ず削除する。**
+   - 一時ファイル例: `.cursor/pr-title.txt`, `.cursor/pr-body.md`
+   - **gh** の例: `$t = Get-Content .cursor/pr-title.txt -Raw -Encoding UTF8` でタイトルを読み、本文は `--body-file .cursor/pr-body.md` で指定。`gh pr create --title $t --body-file .cursor/pr-body.md --base main --head <ブランチ名>`。**完了後に `.cursor/pr-title.txt` と `.cursor/pr-body.md` を削除する。**
+
+ブランチ名や base は「main」をデフォルトとし、ユーザー指定があればそれに従う。
+
+## PR のタイトル・本文を編集する場合（gh pr edit）
+
+依頼例:「PR のタイトルを日本語にして」「PR 本文を日本語で書き直して」
+
+- **日本語で記載**し、**UTF-8・LF** で一時ファイルに書き出す（例: `.cursor/pr-title.txt`, `.cursor/pr-body.md`）。
+- タイトルを変数に読み、本文は `--body-file` で指定して編集する。例: `$t = Get-Content .cursor/pr-title.txt -Raw -Encoding UTF8` のあと `gh pr edit <PR番号> --title $t --body-file .cursor/pr-body.md`。
+- **編集後に一時ファイルを必ず削除する。**

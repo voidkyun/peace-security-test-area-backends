@@ -1,0 +1,49 @@
+# Ensure all text files are UTF-8 (push-time guarantee).
+# Line endings are enforced by .gitattributes (eol=lf).
+
+name: Check UTF-8 encoding
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  utf8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify text files are UTF-8
+        run: |
+          python3 << 'PY'
+          import subprocess
+          import sys
+
+          # Human-edited text only (Unity .meta/.asset/.unity/.prefab can be non-UTF-8 per platform)
+          TEXT_SUFFIXES = frozenset((
+              '.cs', '.asmdef', '.asmref',
+              '.md', '.yml', '.yaml', '.txt', '.mdc', '.gitattributes', '.editorconfig',
+              '.json', '.inputactions',
+          ))
+
+          out = subprocess.run(['git', 'ls-files'], capture_output=True, text=True, check=True)
+          failed = []
+          for path in out.stdout.strip().splitlines():
+            if not any(path == s or path.endswith(s) for s in TEXT_SUFFIXES):
+              continue
+            try:
+              with open(path, 'rb') as f:
+                data = f.read()
+              if data.startswith(b'\xef\xbb\xbf'):
+                data = data[3:]
+              data.decode('utf-8')
+            except Exception as e:
+              failed.append((path, str(e)))
+
+          for path, err in failed:
+            print(f"::error file={path}::Not valid UTF-8: {err}")
+          if failed:
+            sys.exit(1)
+          PY

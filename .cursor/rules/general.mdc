@@ -1,0 +1,48 @@
+---
+description: プロジェクト共通の開発・実行方針（Django DRF / Docker / pip-tools）
+alwaysApply: true
+---
+
+# リポジトリ 共通ルール
+
+## 実行はコンテナ内
+
+テスト・マイグレーション・Django 管理コマンド・pip-compile は **app コンテナ内**で実行する。
+
+- app 起動中: `docker compose exec app <コマンド>`
+- one-off: `docker compose run --rm app <コマンド>`
+
+例: `docker compose exec app pytest -v`、`docker compose run --rm app bash`
+
+## 環境・設定
+
+- 設定は環境変数（12-Factor）。`config/settings/` で読み込む。
+- `.env` は `.env.example` をコピーして作成。`.env` は Git にコミットしない。
+
+## 依存関係
+
+- パッケージ追加: `requirements.in` または `requirements-dev.in` を編集 → コンテナ内で `pip-compile` 実行 → 生成された `requirements.txt` / `requirements-dev.txt` をコミットする。
+
+## API・認証
+
+- 認証は **Discord ログイン** に一本化。ログイン後は JWT を発行し、`Authorization: Bearer <access_token>` で API にアクセスする。
+- エンドポイント一覧は README に書かず、コード（urls、drf-spectacular 等）を正とする。
+
+## コード・構成
+
+- 設定: `config/settings/`。アプリ: `apps/` 配下。
+- 各アプリは `models/`、`serializers/`、`views/` をパッケージで持ち、`__init__.py` で再エクスポートする。
+- **apps.api**: `/api/` のルーティング集約（health 等の view と auth を参照）。
+- **apps.auth**: 認証・セッション（Discord ログイン、JWT refresh）。
+- **apps.accounts**: User モデル（AUTH_USER_MODEL）。
+
+## テストの配置
+
+- テストは **各アプリの `tests/` 配下** に置く（例: `apps/api/tests/`、`apps/auth/tests/`）。
+- 小さい機能単位で `test_*.py` を分ける（例: `test_health.py`、`test_discord_login.py`）。
+- 共通フィクスチャ（`api_client`、`user`）はプロジェクトルートの `conftest.py` に定義する。
+- pytest の探索対象は `pyproject.toml` の `testpaths = ["apps"]` で指定している。
+
+## 実装後のドキュメント見直し
+
+**機能や構成を実装したあとは、README と Cursor ルール（`.cursor/rules/`）を見直す。** 新しい環境変数・コマンド・ディレクトリ構成・テストの置き場所などが変わった場合、README および該当する `.mdc` を更新し、手順やルールがコードと食い違わないようにする。

@@ -1,0 +1,45 @@
+---
+description: テスト記述ルール（Django / DRF / pytest）。README のテスト方針と統一。
+alwaysApply: true
+---
+
+# テスト記述ルール（tests.mdc）
+
+## 実行環境（README と統一）
+
+- **テストは app コンテナ内で実行する。**
+  - app 起動中: `docker compose exec app pytest -v`
+  - one-off: `docker compose run --rm app pytest -v`
+- 特定アプリだけ: `pytest apps/auth/tests/ -v` のようにパス指定できる。
+
+## テストの配置・ファイル分割
+
+- **各 Django アプリの中に `tests/` ディレクトリを置く**（例: `apps/api/tests/`、`apps/auth/tests/`、`apps/accounts/tests/`）。
+- **小さい機能の単位ごとに test の Python ファイルを分ける**（例: `test_health.py`、`test_discord_login.py`、`test_discord_callback.py`、`test_token_refresh.py`）。
+- テストモジュール名: `test_<対象・機能>.py`。テスト関数名: `test_<振る舞い>_<条件または期待>` で、何を検証しているか分かる名前にする。
+- **共通フィクスチャ**（`api_client`、`user`）はプロジェクトルートの `conftest.py` に定義し、各アプリのテストから再利用する。
+
+## フレームワーク・ツール
+
+- **pytest** を利用する（Django 標準の unittest ではなく）。
+- **pytest-django** で Django 設定を読み込み、`@pytest.mark.django_db` で DB アクセスを許可する。
+- **DRF の APIClient**（`rest_framework.test.APIClient`）で API テストを行う。共通クライアントはルート `conftest.py` の `api_client` フィクスチャを使う。
+
+## Django / DRF の慣習
+
+- **URL は可能な限り `reverse()` で解決する**（名前空間付きなら `reverse("api:health")` など）。ハードコードする場合は一貫してパスを書く。
+- **API リクエスト**では `format="json"` を明示し、レスポンスは `response.json()` で検証する。
+- **認証が必要なエンドポイント**では、`api_client.force_authenticate(user=user)` または JWT を付与してからリクエストする。認証不要の確認も必要なら別テストで行う。
+- **DB を触るテスト**には `@pytest.mark.django_db` を付ける。触らないテストでも URL 解決で DB が使われることがあるため、必要に応じて付ける。
+
+## テストの書き方（構成）
+
+- **Arrange（準備）– Act（実行）– Assert（検証）** の流れを守る。
+- 1 テスト 1 つの振る舞い（1 アサーション群）にし、複数パターンは別テストに分ける。
+- 期待する **HTTP ステータスコード** と、必要な場合は **レスポンス body** の両方をアサートする。
+
+## 禁止・非推奨
+
+- テストを **ホストで直接 `pytest` する前提で書かない**（実行はコンテナ内。README に従う）。
+- 本番用の **SECRET_KEY や DATABASE_URL をテストコードに書かない**。設定は環境変数と `config.settings` に任せる。
+- **不要な sleep や固定の retry** は避け、冪等で再現可能なテストにする。
