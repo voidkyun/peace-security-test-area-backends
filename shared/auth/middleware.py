@@ -29,7 +29,11 @@ class ServiceJWTAuthenticationMiddleware:
     def __call__(self, request):
         exempt_paths = get_exempt_paths()
         path = request.path.rstrip("/") or "/"
-        if any(path == p.rstrip("/") or path.startswith(p.rstrip("/") + "/") for p in exempt_paths):
+        # 除外プレフィックスがあれば exempt にしない（例: /laws/proposals は JWT 必須）
+        no_exempt_prefixes = getattr(settings, "SERVICE_JWT_NO_EXEMPT_PREFIXES", ())
+        if no_exempt_prefixes and any(path.startswith(p.rstrip("/")) for p in no_exempt_prefixes):
+            pass  # JWT 必須のためこのまま検証へ
+        elif any(path == p.rstrip("/") or path.startswith(p.rstrip("/") + "/") for p in exempt_paths):
             return self.get_response(request)
 
         auth_header = request.META.get("HTTP_AUTHORIZATION") or ""

@@ -29,5 +29,7 @@ jobs:
 
       - name: Run pytest (root)
         run: docker run --rm -e DJANGO_SETTINGS_MODULE=root.settings app:latest pytest services/root/tests/ -v
+      - name: Run pytest (legislative)
+        run: docker run --rm -e DJANGO_SETTINGS_MODULE=legislative.settings app:latest pytest services/legislative/tests/ -v
       - name: Run pytest (proposals)
         run: docker run --rm -e DJANGO_SETTINGS_MODULE=legislative.settings app:latest pytest shared/proposals/tests/ -v
