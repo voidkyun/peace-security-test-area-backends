@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shared.laws.models import Law, Lawset, LAWSET_ID_AMATERAS
+from laws.models import Law, Lawset, LAWSET_ID_AMATERRACE
 
 
 class LawDetailView(APIView):
@@ -51,14 +51,14 @@ class LawDetailView(APIView):
 class LawsetCurrentView(APIView):
     """
     GET /lawsets/current/
-    現在の法体系（LAWSET-AMATERAS の最新 version）を返す。
+    現在の法体系（LAWSET-AMATERRACE の最新 version）を返す。
     """
 
     permission_classes = []
 
     def get(self, request):
         lawset = (
-            Lawset.objects.filter(lawset_id=LAWSET_ID_AMATERAS)
+            Lawset.objects.filter(lawset_id=LAWSET_ID_AMATERRACE)
             .order_by("-version")
             .first()
         )

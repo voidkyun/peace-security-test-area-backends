@@ -1,19 +1,19 @@
-# GENESIS: 憲法 CONST@1 と LAWSET-AMATERAS@1 を投入（Issue #20）
+# GENESIS: 憲法 CONST@1 と LAWSET-AMATERRACE@1 を投入（Issue #20）
 
 from django.db import migrations
 from django.utils import timezone
 
-from shared.laws.models import (
+from laws.models import (
     LAW_ID_CONST,
-    LAWSET_ID_AMATERAS,
+    LAWSET_ID_AMATERRACE,
     compute_lawset_digest,
 )
 
 
 def create_genesis(apps, schema_editor):
-    Law = apps.get_model("shared_laws", "Law")
-    Lawset = apps.get_model("shared_laws", "Lawset")
-    LawsetMembership = apps.get_model("shared_laws", "LawsetMembership")
+    Law = apps.get_model("laws", "Law")
+    Lawset = apps.get_model("laws", "Lawset")
+    LawsetMembership = apps.get_model("laws", "LawsetMembership")
 
     # 憲法（GENESIS）
     const, _ = Law.objects.get_or_create(
@@ -26,10 +26,10 @@ def create_genesis(apps, schema_editor):
         },
     )
 
-    # 法体系 LAWSET-AMATERAS version=1（仮 digest で作成し、後で更新）
+    # 法体系 LAWSET-AMATERRACE version=1（仮 digest で作成し、後で更新）
     effective_at = timezone.now()
     lawset, _ = Lawset.objects.get_or_create(
-        lawset_id=LAWSET_ID_AMATERAS,
+        lawset_id=LAWSET_ID_AMATERRACE,
         version=1,
         defaults={
             "effective_at": effective_at,
@@ -54,19 +54,19 @@ def create_genesis(apps, schema_editor):
 
 
 def remove_genesis(apps, schema_editor):
-    LawsetMembership = apps.get_model("shared_laws", "LawsetMembership")
-    Lawset = apps.get_model("shared_laws", "Lawset")
-    Law = apps.get_model("shared_laws", "Law")
+    LawsetMembership = apps.get_model("laws", "LawsetMembership")
+    Lawset = apps.get_model("laws", "Lawset")
+    Law = apps.get_model("laws", "Law")
 
-    LawsetMembership.objects.filter(lawset__lawset_id=LAWSET_ID_AMATERAS, lawset__version=1).delete()
-    Lawset.objects.filter(lawset_id=LAWSET_ID_AMATERAS, version=1).delete()
+    LawsetMembership.objects.filter(lawset__lawset_id=LAWSET_ID_AMATERRACE, lawset__version=1).delete()
+    Lawset.objects.filter(lawset_id=LAWSET_ID_AMATERRACE, version=1).delete()
     Law.objects.filter(law_id=LAW_ID_CONST, law_version=1).delete()
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("shared_laws", "0001_initial"),
+        ("laws", "0001_initial"),
     ]
 
     operations = [

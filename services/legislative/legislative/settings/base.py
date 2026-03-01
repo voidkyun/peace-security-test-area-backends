@@ -15,7 +15,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "shared.auth",
     "shared.proposals",
-    "shared.laws",
+    "laws",
 ]
 
 MIDDLEWARE = [

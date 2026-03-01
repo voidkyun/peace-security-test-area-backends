@@ -49,8 +49,8 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("order", models.PositiveSmallIntegerField(default=0)),
-                ("law", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="lawset_memberships", to="shared_laws.law")),
-                ("lawset", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="memberships", to="shared_laws.lawset")),
+                ("law", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="lawset_memberships", to="laws.law")),
+                ("lawset", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="memberships", to="laws.lawset")),
             ],
             options={
                 "verbose_name": "LawsetMembership",
@@ -60,14 +60,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="lawset",
-            constraint=models.UniqueConstraint(fields=("lawset_id", "version"), name="shared_laws_lawset_unique_id_version"),
+            constraint=models.UniqueConstraint(fields=("lawset_id", "version"), name="laws_lawset_unique_id_version"),
         ),
         migrations.AddConstraint(
             model_name="law",
-            constraint=models.UniqueConstraint(fields=("law_id", "law_version"), name="shared_laws_law_unique_id_version"),
+            constraint=models.UniqueConstraint(fields=("law_id", "law_version"), name="laws_law_unique_id_version"),
         ),
         migrations.AddConstraint(
             model_name="lawsetmembership",
-            constraint=models.UniqueConstraint(fields=("lawset", "law"), name="shared_laws_membership_unique_lawset_law"),
+            constraint=models.UniqueConstraint(fields=("lawset", "law"), name="laws_membership_unique_lawset_law"),
         ),
     ]

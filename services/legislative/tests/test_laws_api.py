@@ -1,11 +1,11 @@
 """
 立法サービス: 法・法体系参照 API のテスト（Issue #20）。
-GENESIS 投入後、LAWSET-AMATERAS@1 と CONST@1 が参照可能であることを検証する。
+GENESIS 投入後、LAWSET-AMATERRACE@1 と CONST@1 が参照可能であることを検証する。
 """
 import pytest
 from rest_framework.test import APIClient
 
-from shared.laws.models import LAW_ID_CONST, LAWSET_ID_AMATERAS
+from laws.models import LAW_ID_CONST, LAWSET_ID_AMATERRACE
 
 
 @pytest.fixture
@@ -42,11 +42,11 @@ def test_law_detail_not_found(api_client):
 
 @pytest.mark.django_db
 def test_lawset_current_returns_amateras(api_client):
-    """GET /lawsets/current/ で LAWSET-AMATERAS の最新版が取得できる。"""
+    """GET /lawsets/current/ で LAWSET-AMATERRACE の最新版が取得できる。"""
     response = api_client.get("/lawsets/current/")
     assert response.status_code == 200
     data = response.json()
-    assert data["lawset_id"] == LAWSET_ID_AMATERAS
+    assert data["lawset_id"] == LAWSET_ID_AMATERRACE
     assert data["version"] >= 1
     assert "digest_hash" in data
     assert "laws" in data

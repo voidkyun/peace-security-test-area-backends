@@ -22,7 +22,7 @@ class LawStatus:
 # 憲法の law_id（GENESIS 固定。LAW_CHANGE では変更不可）
 LAW_ID_CONST = "CONST"
 # 初期法体系 ID
-LAWSET_ID_AMATERAS = "LAWSET-AMATERAS"
+LAWSET_ID_AMATERRACE = "LAWSET-AMATERRACE"
 
 
 def compute_lawset_digest(memberships_with_law_text):
@@ -41,7 +41,7 @@ class Lawset(models.Model):
     """
     法体系のバージョン。version は単調増加。
     """
-    lawset_id = models.CharField(max_length=64, db_index=True)  # 例: LAWSET-AMATERAS
+    lawset_id = models.CharField(max_length=64, db_index=True)  # 例: LAWSET-AMATERRACE
     version = models.PositiveIntegerField()
     effective_at = models.DateTimeField()
     digest_hash = models.CharField(max_length=64)  # 監査用（membership から計算）
@@ -53,7 +53,7 @@ class Lawset(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["lawset_id", "version"],
-                name="shared_laws_lawset_unique_id_version",
+                name="laws_lawset_unique_id_version",
             ),
         ]
         ordering = ["lawset_id", "-version"]
@@ -84,7 +84,7 @@ class Law(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["law_id", "law_version"],
-                name="shared_laws_law_unique_id_version",
+                name="laws_law_unique_id_version",
             ),
         ]
         ordering = ["law_id", "law_version"]
@@ -115,7 +115,7 @@ class LawsetMembership(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["lawset", "law"],
-                name="shared_laws_membership_unique_lawset_law",
+                name="laws_membership_unique_lawset_law",
             ),
         ]
         ordering = ["lawset", "order", "law"]

@@ -205,7 +205,7 @@ def test_law_change_with_const_law_id_rejected(db):
             payload={"law_id": LAW_ID_CONST, "title": "憲法改正"},
             expires_at=_future(),
         )
-    assert "CONST" in str(exc_info.value) or "憲法" in str(exc_info.value)
+    assert "CONST" in str(exc_info.value)
 
 
 @pytest.mark.django_db
