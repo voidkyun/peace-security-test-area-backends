@@ -1,0 +1,40 @@
+# モノレポ 4 Django サービス（Root / 立法 / 司法 / 行政）
+# Root のみ外部ポート公開、他は内部ネットワーク用
+services:
+  root:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+    command: ["python", "services/root/manage.py", "runserver", "0.0.0.0:8000"]
+    environment:
+      DJANGO_SETTINGS_MODULE: root.settings
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-at-least-32-chars}
+    ports:
+      - "8000:8000"
+
+  legislative:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+    command: ["python", "services/legislative/manage.py", "runserver", "0.0.0.0:8000"]
+    environment:
+      DJANGO_SETTINGS_MODULE: legislative.settings
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-at-least-32-chars}
+
+  judiciary:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+    command: ["python", "services/judiciary/manage.py", "runserver", "0.0.0.0:8000"]
+    environment:
+      DJANGO_SETTINGS_MODULE: judiciary.settings
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-at-least-32-chars}
+
+  executive:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+    command: ["python", "services/executive/manage.py", "runserver", "0.0.0.0:8000"]
+    environment:
+      DJANGO_SETTINGS_MODULE: executive.settings
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-at-least-32-chars}

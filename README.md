@@ -122,16 +122,28 @@ docker compose up --build
 poetry install
 ```
 
-### 4) マイグレーション（例）
+### 4) 各サービスの起動（ローカル）
 
-各サービス配下で実行します。
+リポジトリルートで実行します。
 
 ```bash
-cd services/root
-poetry run python manage.py migrate
+# Root サービス（例: ポート 8000）
+poetry run python services/root/manage.py runserver 8000
+
+# 他サービスも同様
+poetry run python services/legislative/manage.py runserver 8001
+poetry run python services/judiciary/manage.py runserver 8002
+poetry run python services/executive/manage.py runserver 8003
 ```
 
-同様に `services/legislative` / `services/judiciary` / `services/executive` でも実行します。
+### 5) マイグレーション（例）
+
+各サービスでモデルを追加した場合、リポジトリルートで実行します。
+
+```bash
+poetry run python services/root/manage.py migrate
+# 同様に legislative / judiciary / executive でも実行
+```
 
 ---
 

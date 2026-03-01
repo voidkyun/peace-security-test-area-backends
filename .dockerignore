@@ -1,0 +1,12 @@
+.git
+.cursor
+.venv
+__pycache__
+*.pyc
+*.sqlite3
+.env
+.env.*
+!.env.example
+*.md
+!README.md
+.github

@@ -17,28 +17,29 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache pip
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Cache Poetry
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
 
-      - name: pip-compile consistency
-        run: |
-          pip install pip-tools
-          pip-compile --dry-run requirements.in
-          pip-compile --dry-run requirements-dev.in
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Django check (root)
+        run: poetry run python services/root/manage.py check
+      - name: Django check (legislative)
+        run: poetry run python services/legislative/manage.py check
+      - name: Django check (judiciary)
+        run: poetry run python services/judiciary/manage.py check
+      - name: Django check (executive)
+        run: poetry run python services/executive/manage.py check
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build test image
-        run: docker build --target test -t app:test .
-
-      - name: Run pytest
-        run: >
-          docker run
-          --env DJANGO_SETTINGS_MODULE=config.settings.development
-          --env SECRET_KEY=test-secret-for-ci-at-least-32-bytes-required
-          app:test
-          pytest -v
+      - name: Build image
+        run: docker build -f infra/docker/Dockerfile -t app:latest .

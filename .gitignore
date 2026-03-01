@@ -1,1 +1,12 @@
 .cursor/mcp.json
+.env
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.sqlite3
+.pytest_cache
+.coverage
+htmlcov/
+dist/
+*.egg-info/
