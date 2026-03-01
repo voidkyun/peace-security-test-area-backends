@@ -9,8 +9,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-root-change-me")
 
 INSTALLED_APPS = [
+    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.messages",
+    "django.contrib.sessions",
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
@@ -20,7 +23,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
     "shared.auth.middleware.ServiceJWTAuthenticationMiddleware",
 ]
 
@@ -28,7 +34,7 @@ MIDDLEWARE = [
 SERVICE_JWT_SECRET = os.environ.get("SERVICE_JWT_SECRET", "dev-service-jwt-secret-change-in-production")
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "root")
 # ドキュメント系は開発しやすくするため JWT 不要（将来 Discord ログイン等でセキュア化予定）
-SERVICE_JWT_EXEMPT_PATHS = ("/schema", "/swagger")
+SERVICE_JWT_EXEMPT_PATHS = ("/admin", "/schema", "/swagger")
 
 # Django REST Framework
 # サービス間認証はミドルウェア（ServiceJWTAuthenticationMiddleware）のみで行う。
@@ -55,6 +61,13 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
     },
 ]
 
