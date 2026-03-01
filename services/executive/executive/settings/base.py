@@ -11,12 +11,18 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-executive-change-
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
+    "shared.auth",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "shared.auth.middleware.ServiceJWTAuthenticationMiddleware",
 ]
+
+SERVICE_JWT_SECRET = os.environ.get("SERVICE_JWT_SECRET", "dev-service-jwt-secret-change-in-production")
+SERVICE_NAME = os.environ.get("SERVICE_NAME", "executive")
+SERVICE_JWT_EXEMPT_PATHS = ()
 
 ROOT_URLCONF = "executive.urls"
 

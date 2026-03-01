@@ -19,6 +19,9 @@ COPY services ./services
 RUN poetry config virtualenvs.create false \
   && poetry install --no-interaction
 
+# shared / 各サービスを import 可能にする（pytest や manage.py 以外の起動で必要）
+ENV PYTHONPATH=/app:/app/services/root:/app/services/legislative:/app/services/judiciary:/app/services/executive
+
 # デフォルトは Root サービス（compose で上書き可能）。ポート 8080 で他ライブラリ競合を避ける
 ENV DJANGO_SETTINGS_MODULE=root.settings
 EXPOSE 8080

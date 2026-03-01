@@ -1,7 +1,15 @@
 from django.urls import path
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularSwaggerView,
+)
 
 from . import views
 
 urlpatterns = [
-    path("", views.root),
+    path("", views.RootView.as_view()),
+    path("internal/example/", views.InternalExampleView.as_view()),
+    # OpenAPI スキーマ・Swagger UI
+    path("schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
