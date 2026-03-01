@@ -116,14 +116,21 @@ cp .env.example .env
 
 ```bash
 docker compose up --build
-# 例: docker compose exec root bash のあと、以下で runserver を起動する
-#      ※ Docker 内ではホストから接続できるよう、必ず 0.0.0.0 を指定すること（8080 だけだと 127.0.0.1 にしかバインドされずブラウザでつながらない）
-# python services/root/manage.py runserver 0.0.0.0:8080
-# 他サービスも同様（legislative / judiciary / executive はコンテナ内で runserver 0.0.0.0:8080 後、内部ネットワークで http://legislative:8080 等でアクセス可能）
+# 各コンテナで runserver を起動（コンテナ内はすべて 8080 で待ち受け。必ず 0.0.0.0:8080 を指定すること）
+# docker compose exec root       python services/root/manage.py runserver 0.0.0.0:8080
+# docker compose exec legislative python services/legislative/manage.py runserver 0.0.0.0:8080
+# docker compose exec judiciary   python services/judiciary/manage.py runserver 0.0.0.0:8080
+# docker compose exec executive   python services/executive/manage.py runserver 0.0.0.0:8080
 ```
 
 - **postgres**: 1 コンテナで 4 データベース（root_db, legislative_db, judiciary_db, executive_db）を用意。初回起動時に `infra/docker/init-dbs.sql` で自動作成。
-- **外部ポート公開は root のみ（8080）**。立法・司法・行政は内部ネットワーク限定で、他サービスや root コンテナからサービス名で HTTP アクセス可能。
+- **dev のポート公開**: コンテナ内はすべて 8080。ホストからは別ポート（8080/8081/8082/8083）でアクセスする。runserver 起動後、ブラウザで Admin / Swagger にアクセス可能。
+  | サービス | ホストポート | Admin | Swagger |
+  |----------|-------------|-------|---------|
+  | root | 8080 | http://localhost:8080/admin/ | http://localhost:8080/swagger/ |
+  | legislative | 8081 | http://localhost:8081/admin/ | http://localhost:8081/swagger/ |
+  | judiciary | 8082 | http://localhost:8082/admin/ | http://localhost:8082/swagger/ |
+  | executive | 8083 | http://localhost:8083/admin/ | http://localhost:8083/swagger/ |
 - **healthcheck**: postgres および各 Django サービスに設定済み。アプリは `manage.py check --database default` で DB 接続を確認。
 - 初回のみ、各サービスでマイグレーションを実行: `docker compose exec root python services/root/manage.py migrate` など。
 

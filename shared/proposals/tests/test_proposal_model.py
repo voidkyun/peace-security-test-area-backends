@@ -19,6 +19,7 @@ from shared.proposals.models import (
     FinalizeConflictError,
     compute_payload_hash,
     REQUIRED_APPROVALS,
+    LAW_ID_CONST,
 )
 
 
@@ -188,3 +189,33 @@ def test_approval_on_finalized_proposal_forbidden(proposal_legislative):
 def test_required_approvals_constant():
     """required_approvals は 2 固定。"""
     assert REQUIRED_APPROVALS == 2
+
+
+# --- LAW_CHANGE で憲法（CONST）は対象外（Issue #20） ---
+
+
+@pytest.mark.django_db
+def test_law_change_with_const_law_id_rejected(db):
+    """LAW_CHANGE で payload.law_id が CONST のとき保存で ValidationError。"""
+    with pytest.raises(ValidationError) as exc_info:
+        Proposal.objects.create(
+            kind=ProposalKind.LAW_CHANGE,
+            origin=ProposalOrigin.LEGISLATIVE,
+            law_context={},
+            payload={"law_id": LAW_ID_CONST, "title": "憲法改正"},
+            expires_at=_future(),
+        )
+    assert "CONST" in str(exc_info.value)
+
+
+@pytest.mark.django_db
+def test_law_change_with_other_law_id_accepted(db):
+    """LAW_CHANGE で payload.law_id が CONST でなければ保存できる。"""
+    p = Proposal.objects.create(
+        kind=ProposalKind.LAW_CHANGE,
+        origin=ProposalOrigin.LEGISLATIVE,
+        law_context={},
+        payload={"law_id": "L-000120", "title": "某法改正"},
+        expires_at=_future(),
+    )
+    assert p.pk is not None
