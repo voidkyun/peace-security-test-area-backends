@@ -6,6 +6,7 @@ from . import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("approvals/", views.LawApprovalListCreateView.as_view(), name="law-approval-list"),
     path("laws/proposals/", views.LawProposalCreateView.as_view(), name="law-proposal-create"),
     path("laws/proposals/<uuid:id>/finalize/", views.LawProposalFinalizeView.as_view(), name="law-proposal-finalize"),
     path("laws/<str:law_id>/", views.LawDetailView.as_view(), name="law-detail"),

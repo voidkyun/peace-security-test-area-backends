@@ -12,15 +12,13 @@ from django.utils import timezone
 
 from shared.auth import issue_jwt
 from shared.auth.scopes import PROPOSAL_WRITE, PROPOSAL_FINALIZE, APPROVAL_WRITE
-from shared.proposals.models import (
-    Proposal,
-    Approval,
+from shared.proposals.common import (
     ProposalKind,
     ProposalOrigin,
     ProposalStatus,
     REQUIRED_APPROVALS,
 )
-from laws.models import Lawset, LAWSET_ID_AMATERRACE
+from laws.models import Lawset, LAWSET_ID_AMATERRACE, Proposal, Approval
 
 
 @pytest.fixture
@@ -68,16 +66,18 @@ def test_laws_proposals_post_without_jwt_returns_401(client):
 @pytest.mark.django_db
 def test_laws_proposals_post_with_scope_creates_proposal(client, token_proposal_write):
     """POST /laws/proposals/ で proposal.write ありなら LAW_CHANGE 提案が作成される。"""
-    response = client.post(
-        "/laws/proposals/",
-        data={
-            "law_id": "L-001",
-            "title": "某法の新設",
-            "text": "本法は試験用です。",
-        },
-        content_type="application/json",
-        HTTP_AUTHORIZATION=f"Bearer {token_proposal_write}",
-    )
+    from unittest.mock import patch
+    with patch("legislative.views.register_index"):
+        response = client.post(
+            "/laws/proposals/",
+            data={
+                "law_id": "L-001",
+                "title": "某法の新設",
+                "text": "本法は試験用です。",
+            },
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token_proposal_write}",
+        )
     assert response.status_code == 201
     data = response.json()
     assert data["kind"] == ProposalKind.LAW_CHANGE
@@ -141,17 +141,29 @@ def proposal_with_two_approvals(db):
 def test_laws_proposals_finalize_success_updates_lawset_version(
     client, token_proposal_finalize, proposal_with_two_approvals
 ):
-    """正常系: finalize で lawset の新 version が発行される。"""
+    """正常系: finalize で lawset の新 version が発行される（他2系の承認は API 取得をモック）。"""
+    from unittest.mock import patch
     pid = proposal_with_two_approvals.proposal_id
     current = Lawset.objects.filter(lawset_id=LAWSET_ID_AMATERRACE).order_by("-version").first()
     assert current is not None
     prev_version = current.version
 
-    response = client.post(
-        f"/laws/proposals/{pid}/finalize/",
-        content_type="application/json",
-        HTTP_AUTHORIZATION=f"Bearer {token_proposal_finalize}",
-    )
+    external = [
+        {"by": "JUDICIARY", "reason": "本法案は手続きおよび実体規定に適合する。", "references": ["憲法第81条"]},
+        {"by": "EXECUTIVE", "reason": "本法案は執行上問題ないと判断した。承認する。（20文字以上）", "references": ["憲法第72条"]},
+    ]
+    with patch("legislative.views.fetch_approvals_from_service") as mock_fetch, patch(
+        "legislative.views.update_index_status"
+    ), patch("legislative.views.send_audit_event"):
+        mock_fetch.side_effect = [
+            [external[0]],
+            [external[1]],
+        ]
+        response = client.post(
+            f"/laws/proposals/{pid}/finalize/",
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token_proposal_finalize}",
+        )
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == ProposalStatus.FINALIZED

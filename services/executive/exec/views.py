@@ -1,24 +1,93 @@
 """
-秩序実行系 API: Evaluation 保存・EXEC_ACTION 提案・確定（Issue #9）。
+秩序実行系 API: Evaluation 保存・EXEC_ACTION 提案・確定（Issue #9）。承認 API と finalize 他サービス取得（Issue #10）。
 """
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from shared.auth.permissions import RequireScope
-from shared.auth.scopes import PROPOSAL_WRITE, PROPOSAL_FINALIZE
-from shared.proposals.models import (
-    Proposal,
-    ProposalKind,
-    ProposalOrigin,
-    ProposalStatus,
-    FinalizeConflictError,
-)
+from shared.auth.scopes import PROPOSAL_WRITE, PROPOSAL_FINALIZE, APPROVAL_WRITE
+from shared.proposals.common import ProposalKind, ProposalOrigin, ProposalStatus, FinalizeConflictError
+from exec.models import Proposal, Approval
 
 from .models import Evaluation
-from .serializers import EvaluationCreateSerializer, ExecProposalCreateSerializer
-from .services import enqueue_execution, send_audit_event
+from .serializers import EvaluationCreateSerializer, ExecProposalCreateSerializer, ExecApprovalCreateSerializer
+from .services import (
+    enqueue_execution,
+    send_audit_event,
+    register_index,
+    update_index_status,
+    fetch_approvals_from_service,
+)
+
+
+class RequireApprovalScopeForMethod(RequireScope):
+    """GET は PROPOSAL_FINALIZE、POST は APPROVAL_WRITE。"""
+
+    def has_permission(self, request, view):
+        from rest_framework.exceptions import PermissionDenied
+        scope = PROPOSAL_FINALIZE if request.method == "GET" else APPROVAL_WRITE
+        req_scopes = getattr(request, "service_scopes", None) or []
+        if scope in req_scopes:
+            return True
+        raise PermissionDenied(detail=f"Scope '{scope}' required.")
+
+
+class ExecApprovalListCreateView(APIView):
+    """
+    GET /approvals/?proposal_id=xxx — 当該 Proposal の承認一覧（by=EXECUTIVE のみ）
+    POST /approvals/ — 承認作成（by=EXECUTIVE）
+    """
+
+    permission_classes = [RequireApprovalScopeForMethod]
+
+    @extend_schema(
+        summary="承認一覧（proposal_id 指定）",
+        parameters=[OpenApiParameter("proposal_id", type=str)],
+        responses={200: {}},
+    )
+    def get(self, request):
+        proposal_id = request.query_params.get("proposal_id")
+        if not proposal_id:
+            return Response(
+                {"detail": "proposal_id を指定してください。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            from uuid import UUID
+            pid = UUID(proposal_id)
+        except ValueError:
+            return Response(
+                {"detail": "不正な proposal_id です。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        qs = Approval.objects.filter(proposal__proposal_id=pid).order_by("-created_at")
+        data = [{"by": a.by, "reason": a.reason, "references": a.references} for a in qs]
+        return Response(data)
+
+    @extend_schema(
+        summary="承認作成（執行）",
+        request=ExecApprovalCreateSerializer,
+        responses={201: {}, 400: {}},
+    )
+    def post(self, request):
+        ser = ExecApprovalCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        approval = ser.save()
+        return Response(
+            {
+                "id": approval.pk,
+                "proposal_id": str(approval.proposal.proposal_id),
+                "by": approval.by,
+                "reason": approval.reason,
+                "references": approval.references,
+                "created_at": approval.created_at.isoformat(),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class EvaluationCreateView(APIView):
@@ -70,6 +139,7 @@ class ExecProposalCreateView(APIView):
             payload=payload,
             expires_at=expires_at,
         )
+        register_index(proposal)
         return Response(
             {
                 "proposal_id": str(proposal.proposal_id),
@@ -107,8 +177,13 @@ class ExecProposalFinalizeView(APIView):
                 {"detail": "EXEC_ACTION 以外の提案はこのエンドポイントでは確定できません。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        judiciary_url = getattr(settings, "JUDICIARY_SERVICE_URL", "").rstrip("/")
+        legislative_url = getattr(settings, "LEGISLATIVE_SERVICE_URL", "").rstrip("/")
+        external = []
+        external.extend(fetch_approvals_from_service(judiciary_url, id))
+        external.extend(fetch_approvals_from_service(legislative_url, id))
         try:
-            proposal.finalize()
+            proposal.finalize_with_approvals(external)
         except FinalizeConflictError as e:
             return Response(
                 {"detail": str(e)},
@@ -120,6 +195,7 @@ class ExecProposalFinalizeView(APIView):
             "proposal_id": str(proposal.proposal_id),
             "payload": proposal.payload,
         })
+        update_index_status(proposal.proposal_id, ProposalStatus.FINALIZED, proposal.finalized_at)
         return Response(
             {
                 "proposal_id": str(proposal.proposal_id),

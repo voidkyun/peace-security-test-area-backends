@@ -1,1 +1,2 @@
-# Proposal 共通モデル・整合性バリデーション（相互承認制）
+# Proposal 定数・検証ロジック（相互承認制）。モデルは各サービスが固有に保持。
+# 利用: from shared.proposals.common import ProposalKind, validate_finalize_approvals, ...

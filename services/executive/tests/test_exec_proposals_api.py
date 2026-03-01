@@ -13,13 +13,8 @@ from django.utils import timezone
 
 from shared.auth import issue_jwt
 from shared.auth.scopes import PROPOSAL_WRITE, PROPOSAL_FINALIZE
-from shared.proposals.models import (
-    Proposal,
-    Approval,
-    ProposalKind,
-    ProposalOrigin,
-    ProposalStatus,
-)
+from shared.proposals.common import ProposalKind, ProposalOrigin, ProposalStatus
+from exec.models import Proposal, Approval
 from exec.models import ExecutionQueueItem
 
 
@@ -64,12 +59,14 @@ def test_exec_proposals_post_without_jwt_returns_401(client):
 @pytest.mark.django_db
 def test_exec_proposals_post_with_scope_creates_proposal(client, token_proposal_write):
     """POST /exec/proposals/ で proposal.write ありなら EXEC_ACTION 提案が作成される。"""
-    response = client.post(
-        "/exec/proposals/",
-        data={"payload": {"action": "NOTIFY", "target": "user-1"}},
-        content_type="application/json",
-        HTTP_AUTHORIZATION=f"Bearer {token_proposal_write}",
-    )
+    from unittest.mock import patch
+    with patch("exec.views.register_index"):
+        response = client.post(
+            "/exec/proposals/",
+            data={"payload": {"action": "NOTIFY", "target": "user-1"}},
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token_proposal_write}",
+        )
     assert response.status_code == 201
     data = response.json()
     assert data["kind"] == ProposalKind.EXEC_ACTION
@@ -115,14 +112,23 @@ def exec_proposal_with_two_approvals(db):
 def test_exec_proposals_finalize_success_enqueues_and_returns_200(
     client, token_proposal_finalize, exec_proposal_with_two_approvals
 ):
-    """正常系: finalize で status=FINALIZED、実行キューに1件追加。"""
+    """正常系: finalize で status=FINALIZED、実行キューに1件追加（他2系の承認は API 取得をモック）。"""
+    from unittest.mock import patch
     p = exec_proposal_with_two_approvals
     pid = p.proposal_id
-    response = client.post(
-        f"/exec/proposals/{pid}/finalize/",
-        content_type="application/json",
-        HTTP_AUTHORIZATION=f"Bearer {token_proposal_finalize}",
-    )
+    external = [
+        {"by": "JUDICIARY", "reason": "本法案は手続きおよび実体規定に適合する。", "references": ["憲法第81条"]},
+        {"by": "LEGISLATIVE", "reason": "本法案は執行上問題ないと判断した。承認する。（20文字以上）", "references": ["憲法第72条"]},
+    ]
+    with patch("exec.views.fetch_approvals_from_service") as mock_fetch, patch(
+        "exec.views.update_index_status"
+    ):
+        mock_fetch.side_effect = [[external[0]], [external[1]]]
+        response = client.post(
+            f"/exec/proposals/{pid}/finalize/",
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token_proposal_finalize}",
+        )
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == ProposalStatus.FINALIZED

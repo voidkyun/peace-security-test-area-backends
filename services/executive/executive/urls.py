@@ -6,6 +6,7 @@ from exec import views as exec_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("approvals/", exec_views.ExecApprovalListCreateView.as_view(), name="exec-approval-list"),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("evaluations/", exec_views.EvaluationCreateView.as_view(), name="evaluation-create"),
