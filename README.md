@@ -114,6 +114,7 @@ cp .env.example .env
 ```bash
 docker compose up --build
 # 例: docker compose exec root bash のあと python services/root/manage.py runserver 8080
+# 他サービスも同様（コンテナ内ではいずれも 8080、ホストからは 8081/8082/8083 でアクセス可能）
 ```
 
 **prod**: コンテナ起動時に runserver を自動実行する場合は `docker-compose.prod.yml` を併用します。
@@ -122,8 +123,9 @@ docker compose up --build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 ```
 
-* Root のみポート **8080** を公開（8000 は他ライブラリと競合しうるため避けています）
-* 他サービスは内部ネットワークからのみ到達可能な想定です
+* 各サービスのポート割り当て（dev で admin 等を触るとき用）:
+  - Root: **8080** / 立法(legislative): **8081** / 司法(judiciary): **8082** / 行政(executive): **8083**
+  - コンテナ内ではいずれも `runserver 8080`。ホストからは上記ポートでアクセス
 
 ### 3) 依存解決（ローカル）
 
