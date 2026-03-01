@@ -109,12 +109,23 @@ cp .env.example .env
 
 ### 2) 起動（Docker Compose）
 
+**dev（デフォルト）**: コンテナ起動時は runserver は動かさず、コンテナ内で bash してマイグレーション・runserver などを実行する想定です。
+
 ```bash
 docker compose up --build
+# 例: docker compose exec root bash のあと python services/root/manage.py runserver 8080
+# 他サービスも同様（コンテナ内ではいずれも 8080、ホストからは 8081/8082/8083 でアクセス可能）
 ```
 
-* Rootのみ外部ポート公開
-* 他サービスは内部ネットワークからのみ到達可能な想定です
+**prod**: コンテナ起動時に runserver を自動実行する場合は `docker-compose.prod.yml` を併用します。
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+```
+
+* 各サービスのポート割り当て（dev で admin 等を触るとき用）:
+  - Root: **8080** / 立法(legislative): **8081** / 司法(judiciary): **8082** / 行政(executive): **8083**
+  - コンテナ内ではいずれも `runserver 8080`。ホストからは上記ポートでアクセス
 
 ### 3) 依存解決（ローカル）
 
@@ -122,16 +133,28 @@ docker compose up --build
 poetry install
 ```
 
-### 4) マイグレーション（例）
+### 4) 各サービスの起動（ローカル）
 
-各サービス配下で実行します。
+リポジトリルートで実行します。
 
 ```bash
-cd services/root
-poetry run python manage.py migrate
+# Root サービス（ポート 8080。8000 は他ライブラリ競合を避けるため使用しません）
+poetry run python services/root/manage.py runserver 8080
+
+# 他サービスも同様（別ポートで起動）
+poetry run python services/legislative/manage.py runserver 8081
+poetry run python services/judiciary/manage.py runserver 8082
+poetry run python services/executive/manage.py runserver 8083
 ```
 
-同様に `services/legislative` / `services/judiciary` / `services/executive` でも実行します。
+### 5) マイグレーション（例）
+
+各サービスでモデルを追加した場合、リポジトリルートで実行します。
+
+```bash
+poetry run python services/root/manage.py migrate
+# 同様に legislative / judiciary / executive でも実行
+```
 
 ---
 

@@ -1,0 +1,11 @@
+# prod: コンテナ起動時に runserver を自動実行する
+# 利用例: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+services:
+  root:
+    command: ["python", "services/root/manage.py", "runserver", "0.0.0.0:8080"]
+  legislative:
+    command: ["python", "services/legislative/manage.py", "runserver", "0.0.0.0:8080"]
+  judiciary:
+    command: ["python", "services/judiciary/manage.py", "runserver", "0.0.0.0:8080"]
+  executive:
+    command: ["python", "services/executive/manage.py", "runserver", "0.0.0.0:8080"]
