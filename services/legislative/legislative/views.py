@@ -2,10 +2,10 @@
 規範生成系（立法）サービス API。法・法体系の参照用（Issue #20）。
 LAW_CHANGE 提案・確定フロー（Issue #8）。
 """
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import serializers
 
 from shared.auth.permissions import RequireScope
 from shared.auth.scopes import PROPOSAL_WRITE, PROPOSAL_FINALIZE
@@ -22,6 +22,8 @@ from laws.services import (
     create_new_lawset_version_from_proposal,
     send_audit_event,
 )
+
+from .serializers import LawProposalCreateSerializer
 
 
 class LawDetailView(APIView):
@@ -108,23 +110,6 @@ class LawsetCurrentView(APIView):
 # --- LAW_CHANGE 提案・確定（Issue #8） ---
 
 
-class LawProposalCreateSerializer(serializers.Serializer):
-    """POST /laws/proposals/ のリクエスト body。"""
-
-    law_id = serializers.CharField(max_length=64)
-    title = serializers.CharField(max_length=256)
-    text = serializers.CharField(allow_blank=True, default="")
-    expires_at = serializers.DateTimeField(required=False)
-
-    def validate_law_id(self, value):
-        from shared.proposals.models import LAW_ID_CONST
-        if value == LAW_ID_CONST:
-            raise serializers.ValidationError(
-                "憲法（CONST）は LAW_CHANGE の対象にできません。"
-            )
-        return value
-
-
 class LawProposalCreateView(APIView):
     """
     POST /laws/proposals/
@@ -138,7 +123,6 @@ class LawProposalCreateView(APIView):
         ser = LawProposalCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         data = ser.validated_data
-        from django.utils import timezone
         expires_at = data.get("expires_at")
         if expires_at is None:
             expires_at = timezone.now() + timezone.timedelta(days=30)
