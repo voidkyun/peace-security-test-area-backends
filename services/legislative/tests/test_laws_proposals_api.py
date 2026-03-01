@@ -12,15 +12,13 @@ from django.utils import timezone
 
 from shared.auth import issue_jwt
 from shared.auth.scopes import PROPOSAL_WRITE, PROPOSAL_FINALIZE, APPROVAL_WRITE
-from shared.proposals.models import (
-    Proposal,
-    Approval,
+from shared.proposals.common import (
     ProposalKind,
     ProposalOrigin,
     ProposalStatus,
     REQUIRED_APPROVALS,
 )
-from laws.models import Lawset, LAWSET_ID_AMATERRACE
+from laws.models import Lawset, LAWSET_ID_AMATERRACE, Proposal, Approval
 
 
 @pytest.fixture

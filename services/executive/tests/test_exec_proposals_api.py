@@ -13,13 +13,8 @@ from django.utils import timezone
 
 from shared.auth import issue_jwt
 from shared.auth.scopes import PROPOSAL_WRITE, PROPOSAL_FINALIZE
-from shared.proposals.models import (
-    Proposal,
-    Approval,
-    ProposalKind,
-    ProposalOrigin,
-    ProposalStatus,
-)
+from shared.proposals.common import ProposalKind, ProposalOrigin, ProposalStatus
+from exec.models import Proposal, Approval
 from exec.models import ExecutionQueueItem
 
 

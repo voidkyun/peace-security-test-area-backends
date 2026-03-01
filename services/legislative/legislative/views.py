@@ -11,16 +11,9 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from shared.auth.permissions import RequireScope
 from shared.auth.scopes import PROPOSAL_WRITE, PROPOSAL_FINALIZE, APPROVAL_WRITE
-from shared.proposals.models import (
-    Proposal,
-    Approval,
-    ProposalKind,
-    ProposalOrigin,
-    ProposalStatus,
-    FinalizeConflictError,
-)
+from shared.proposals.common import ProposalKind, ProposalOrigin, ProposalStatus, FinalizeConflictError
 
-from laws.models import Law, Lawset, LAWSET_ID_AMATERRACE
+from laws.models import Law, Lawset, LAWSET_ID_AMATERRACE, Proposal, Approval
 from laws.services import (
     create_new_lawset_version_from_proposal,
     send_audit_event,

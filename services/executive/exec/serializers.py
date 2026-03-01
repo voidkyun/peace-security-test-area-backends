@@ -3,7 +3,8 @@
 """
 from rest_framework import serializers
 
-from shared.proposals.models import Approval, Proposal, ProposalOrigin, ProposalStatus
+from shared.proposals.common import ProposalOrigin, ProposalStatus
+from exec.models import Proposal, Approval
 
 
 class EvaluationCreateSerializer(serializers.Serializer):
