@@ -35,6 +35,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: root_db
+    volumes:
+      - .:/app
     ports:
       - "8080:8080"
     depends_on:
@@ -61,6 +63,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: legislative_db
+    volumes:
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,6 +89,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: judiciary_db
+    volumes:
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,6 +115,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: executive_db
+    volumes:
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy

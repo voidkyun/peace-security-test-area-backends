@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "shared.auth",
+    "audit",
 ]
 
 MIDDLEWARE = [
@@ -26,7 +27,8 @@ MIDDLEWARE = [
 # サービス間認証（Service JWT）。本番では環境変数で上書きすること。
 SERVICE_JWT_SECRET = os.environ.get("SERVICE_JWT_SECRET", "dev-service-jwt-secret-change-in-production")
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "root")
-SERVICE_JWT_EXEMPT_PATHS = ()  # JWT 不要にするパス（例: ("/health",)）
+# ドキュメント系は開発しやすくするため JWT 不要（将来 Discord ログイン等でセキュア化予定）
+SERVICE_JWT_EXEMPT_PATHS = ("/schema", "/swagger")
 
 # Django REST Framework
 # サービス間認証はミドルウェア（ServiceJWTAuthenticationMiddleware）のみで行う。
@@ -48,6 +50,13 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "APP_DIRS": True,
+    },
+]
 
 ROOT_URLCONF = "root.urls"
 

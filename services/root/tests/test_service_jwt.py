@@ -84,3 +84,15 @@ def test_internal_example_with_scope_returns_200(client, valid_token):
     data = response.json()
     assert data.get("ok") is True
     assert data.get("service") == "test-service"
+
+
+def test_swagger_without_jwt_returns_200(client):
+    """Swagger UI は JWT 不要で 200（開発用に EXEMPT）。"""
+    response = client.get("/swagger/")
+    assert response.status_code == 200
+
+
+def test_schema_without_jwt_returns_200(client):
+    """OpenAPI schema は JWT 不要で 200（開発用に EXEMPT）。"""
+    response = client.get("/schema/")
+    assert response.status_code == 200
