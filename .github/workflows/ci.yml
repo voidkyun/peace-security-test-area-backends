@@ -12,34 +12,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Poetry
-        run: pip install poetry
-
-      - name: Cache Poetry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install dependencies
-        run: poetry install --no-interaction
-
-      - name: Django check (root)
-        run: poetry run python services/root/manage.py check
-      - name: Django check (legislative)
-        run: poetry run python services/legislative/manage.py check
-      - name: Django check (judiciary)
-        run: poetry run python services/judiciary/manage.py check
-      - name: Django check (executive)
-        run: poetry run python services/executive/manage.py check
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build image
         run: docker build -f infra/docker/Dockerfile -t app:latest .
+
+      - name: Django check (root)
+        run: docker run --rm -e DJANGO_SETTINGS_MODULE=root.settings app:latest python services/root/manage.py check
+      - name: Django check (legislative)
+        run: docker run --rm -e DJANGO_SETTINGS_MODULE=legislative.settings app:latest python services/legislative/manage.py check
+      - name: Django check (judiciary)
+        run: docker run --rm -e DJANGO_SETTINGS_MODULE=judiciary.settings app:latest python services/judiciary/manage.py check
+      - name: Django check (executive)
+        run: docker run --rm -e DJANGO_SETTINGS_MODULE=executive.settings app:latest python services/executive/manage.py check
+
+      - name: Run pytest
+        run: docker run --rm -e DJANGO_SETTINGS_MODULE=root.settings -e PYTHONPATH=/app/services/root app:latest pytest
