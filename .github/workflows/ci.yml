@@ -38,6 +38,12 @@ jobs:
       - name: Django check (executive)
         run: poetry run python services/executive/manage.py check
 
+      - name: Run pytest
+        run: poetry run pytest
+        env:
+          DJANGO_SETTINGS_MODULE: root.settings
+          PYTHONPATH: services
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
