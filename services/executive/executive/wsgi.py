@@ -2,9 +2,10 @@ import os
 import sys
 from pathlib import Path
 
-_services_dir = Path(__file__).resolve().parent.parent.parent
-if str(_services_dir) not in sys.path:
-    sys.path.insert(0, str(_services_dir))
+# プロジェクトルートをパスに追加
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "executive.settings")
 

@@ -1,5 +1,5 @@
 """
-Root サービス用 Django 設定（公開窓口・監査ログ・Proposal 索引）。
+Root サービス用 Django 設定（共通）。
 """
 import os
 from pathlib import Path
@@ -7,10 +7,6 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-root-change-me")
-
-DEBUG = os.environ.get("DEBUG", "true").lower() in ("1", "true", "yes")
-
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
