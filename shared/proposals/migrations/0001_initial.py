@@ -38,6 +38,8 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("by", models.CharField(choices=[("LEGISLATIVE", "LEGISLATIVE"), ("JUDICIARY", "JUDICIARY"), ("EXECUTIVE", "EXECUTIVE")], db_index=True, max_length=32)),
+                ("reason", models.TextField(default="", help_text="承認理由（20文字以上）")),
+                ("references", models.JSONField(default=list, help_text='参照条文のリスト（1件以上）。例: ["憲法第73条", "法律第1条"]')),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("proposal", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="approvals", to="shared_proposals.proposal")),
             ],
