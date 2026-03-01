@@ -12,6 +12,7 @@ urlpatterns = [
     path("", views.RootView.as_view()),
     path("internal/example/", views.InternalExampleView.as_view()),
     path("audit/", include("audit.urls")),
+    path("approvals/", include("approvals.urls")),
     # OpenAPI スキーマ・Swagger UI
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

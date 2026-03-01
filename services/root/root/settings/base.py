@@ -18,7 +18,9 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "shared.auth",
+    "shared.proposals",
     "audit",
+    "approvals",
 ]
 
 MIDDLEWARE = [

@@ -149,6 +149,7 @@ class Approval(models.Model):
     """
     他系統による承認。1 Proposal につき最大2件（origin 以外の2系統のみ）。
     同一 (proposal, by) の重複は禁止（Approval 再利用不可の一環）。
+    理由（reason）と参照条文（references）は法的根拠として必須（Issue #7）。
     """
     proposal = models.ForeignKey(
         Proposal,
@@ -156,6 +157,11 @@ class Approval(models.Model):
         related_name="approvals",
     )
     by = models.CharField(max_length=32, choices=ProposalOrigin.CHOICES, db_index=True)
+    reason = models.TextField(default="", help_text="承認理由（20文字以上）")
+    references = models.JSONField(
+        default=list,
+        help_text="参照条文のリスト（1件以上）。例: [\"憲法第73条\", \"法律第1条\"]",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -169,6 +175,10 @@ class Approval(models.Model):
         return f"Approval(proposal={self.proposal_id}, by={self.by})"
 
     def clean(self):
+        if not self.reason or len(self.reason.strip()) < 20:
+            raise ValidationError("承認理由は20文字以上で入力してください。")
+        if not self.references or not isinstance(self.references, list) or len(self.references) < 1:
+            raise ValidationError("参照条文を1件以上指定してください。")
         if self.proposal_id and self.proposal:
             if self.by == self.proposal.origin:
                 raise ValidationError("発議元（origin）は承認できません。承認の承認は禁止です。")

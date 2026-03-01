@@ -31,6 +31,11 @@ def _past():
     return timezone.now() - timezone.timedelta(hours=1)
 
 
+# Issue #7: Approval は reason（20文字以上）と references（1件以上）必須
+APPROVAL_REASON_MIN = "本法案は手続きおよび実体規定に適合することを確認した。"
+APPROVAL_REFERENCES = ["憲法第73条"]
+
+
 @pytest.fixture
 def proposal_legislative(db):
     """立法発議の Proposal（origin=LEGISLATIVE）。承認可能なのは JUDICIARY / EXECUTIVE。"""
@@ -50,8 +55,18 @@ def proposal_legislative(db):
 @pytest.mark.django_db
 def test_finalize_success_with_two_approvals(proposal_legislative):
     """2系統から各1件の承認で finalize が成功する。"""
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY)
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.EXECUTIVE)
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.JUDICIARY,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.EXECUTIVE,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
     proposal_legislative.finalize()
     proposal_legislative.refresh_from_db()
     assert proposal_legislative.status == ProposalStatus.FINALIZED
@@ -92,7 +107,12 @@ def test_payload_hash_computed_on_save(db):
 @pytest.mark.django_db
 def test_finalize_fails_insufficient_approvals(proposal_legislative):
     """承認が1件のみのとき finalize は FinalizeConflictError。"""
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY)
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.JUDICIARY,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
     with pytest.raises(FinalizeConflictError) as exc_info:
         proposal_legislative.finalize()
     assert "承認が2件必要" in str(exc_info.value)
@@ -103,8 +123,18 @@ def test_finalize_fails_expired(proposal_legislative):
     """期限切れの Proposal は finalize できない。"""
     proposal_legislative.expires_at = _past()
     proposal_legislative.save(update_fields=["expires_at"])
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY)
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.EXECUTIVE)
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.JUDICIARY,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.EXECUTIVE,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
     with pytest.raises(FinalizeConflictError) as exc_info:
         proposal_legislative.finalize()
     assert "期限切れ" in str(exc_info.value)
@@ -113,8 +143,18 @@ def test_finalize_fails_expired(proposal_legislative):
 @pytest.mark.django_db
 def test_finalize_fails_already_finalized(proposal_legislative):
     """確定済みの Proposal を再度 finalize すると FinalizeConflictError。"""
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY)
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.EXECUTIVE)
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.JUDICIARY,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.EXECUTIVE,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
     proposal_legislative.finalize()
     with pytest.raises(FinalizeConflictError) as exc_info:
         proposal_legislative.finalize()
@@ -124,8 +164,18 @@ def test_finalize_fails_already_finalized(proposal_legislative):
 @pytest.mark.django_db
 def test_finalize_fails_when_status_expired(proposal_legislative):
     """status=EXPIRED のとき finalize は FinalizeConflictError。"""
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY)
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.EXECUTIVE)
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.JUDICIARY,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.EXECUTIVE,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
     proposal_legislative.status = ProposalStatus.EXPIRED
     proposal_legislative.save(update_fields=["status"])
     with pytest.raises(FinalizeConflictError) as exc_info:
@@ -148,8 +198,18 @@ def test_finalize_fails_when_approval_by_origin(proposal_legislative):
     """承認に origin が含まれる場合（不正データ）finalize は FinalizeConflictError。"""
     # 通常は Approval.clean で弾かれるが、不正に origin 承認が入った場合の finalize 拒否を検証
     Approval.objects.bulk_create([
-        Approval(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY),
-        Approval(proposal=proposal_legislative, by=ProposalOrigin.LEGISLATIVE),
+        Approval(
+            proposal=proposal_legislative,
+            by=ProposalOrigin.JUDICIARY,
+            reason=APPROVAL_REASON_MIN,
+            references=APPROVAL_REFERENCES,
+        ),
+        Approval(
+            proposal=proposal_legislative,
+            by=ProposalOrigin.LEGISLATIVE,
+            reason=APPROVAL_REASON_MIN,
+            references=APPROVAL_REFERENCES,
+        ),
     ])
     with pytest.raises(FinalizeConflictError) as exc_info:
         proposal_legislative.finalize()
@@ -163,25 +223,55 @@ def test_finalize_fails_when_approval_by_origin(proposal_legislative):
 def test_approval_by_origin_forbidden(proposal_legislative):
     """発議元（origin）による承認は ValidationError。"""
     with pytest.raises(ValidationError):
-        Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.LEGISLATIVE)
+        Approval.objects.create(
+            proposal=proposal_legislative,
+            by=ProposalOrigin.LEGISLATIVE,
+            reason=APPROVAL_REASON_MIN,
+            references=APPROVAL_REFERENCES,
+        )
 
 
 @pytest.mark.django_db
 def test_approval_reuse_same_branch_forbidden(proposal_legislative):
     """同一 (proposal, by) の2件目は UniqueConstraint で拒否。"""
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY)
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.JUDICIARY,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
     with pytest.raises((IntegrityError, ValidationError)):
-        Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY)
+        Approval.objects.create(
+            proposal=proposal_legislative,
+            by=ProposalOrigin.JUDICIARY,
+            reason=APPROVAL_REASON_MIN,
+            references=APPROVAL_REFERENCES,
+        )
 
 
 @pytest.mark.django_db
 def test_approval_on_finalized_proposal_forbidden(proposal_legislative):
     """確定済みの Proposal に承認を追加すると ValidationError。"""
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.JUDICIARY)
-    Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.EXECUTIVE)
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.JUDICIARY,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
+    Approval.objects.create(
+        proposal=proposal_legislative,
+        by=ProposalOrigin.EXECUTIVE,
+        reason=APPROVAL_REASON_MIN,
+        references=APPROVAL_REFERENCES,
+    )
     proposal_legislative.finalize()
     with pytest.raises(ValidationError) as exc_info:
-        Approval.objects.create(proposal=proposal_legislative, by=ProposalOrigin.EXECUTIVE)
+        Approval.objects.create(
+            proposal=proposal_legislative,
+            by=ProposalOrigin.EXECUTIVE,
+            reason=APPROVAL_REASON_MIN,
+            references=APPROVAL_REFERENCES,
+        )
     assert "確定済み" in str(exc_info.value) or "期限切れ" in str(exc_info.value)
 
 
