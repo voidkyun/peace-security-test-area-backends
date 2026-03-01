@@ -1,47 +1,123 @@
-# モノレポ 4 Django サービス（dev: コンテナ起動時は runserver しない）
+# モノレポ 4 Django サービス + PostgreSQL（dev: コンテナ起動時は runserver しない）
 # コンテナ内で bash してマイグレーション・runserver などを実行する想定
-# 各サービスにホストポートを割り当て（admin 等を触るとき用）。8000 は他ライブラリ競合のため避け 8080 番台を使用
+# 外部ポート公開は root のみ。他サービスは内部ネットワーク限定。
+# 8000 は他ライブラリ競合のため避け 8080 を使用
+
 services:
+  postgres:
+    image: postgres:16-alpine
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   root:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
     command: ["sleep", "infinity"]
+    env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: root.settings
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-at-least-32-chars}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: root_db
     ports:
       - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python services/root/manage.py check --database default || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   legislative:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
     command: ["sleep", "infinity"]
+    env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: legislative.settings
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-at-least-32-chars}
-    ports:
-      - "8081:8080"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: legislative_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python services/legislative/manage.py check --database default || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   judiciary:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
     command: ["sleep", "infinity"]
+    env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: judiciary.settings
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-at-least-32-chars}
-    ports:
-      - "8082:8080"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: judiciary_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python services/judiciary/manage.py check --database default || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   executive:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
     command: ["sleep", "infinity"]
+    env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: executive.settings
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-at-least-32-chars}
-    ports:
-      - "8083:8080"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: executive_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python services/executive/manage.py check --database default || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  postgres_data: {}
