@@ -3,6 +3,7 @@ name = "peace-security-test-area-backends"
 version = "0.1.0"
 description = "平和保障試験区バックエンド群（4 Django プロジェクト + shared）"
 readme = "README.md"
+authors = ["voidkyun <voidkyun@users.noreply.github.com>"]
 packages = [{ include = "shared" }]
 
 [tool.poetry.dependencies]
