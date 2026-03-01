@@ -109,11 +109,20 @@ cp .env.example .env
 
 ### 2) 起動（Docker Compose）
 
+**dev（デフォルト）**: コンテナ起動時は runserver は動かさず、コンテナ内で bash してマイグレーション・runserver などを実行する想定です。
+
 ```bash
 docker compose up --build
+# 例: docker compose exec root bash のあと python services/root/manage.py runserver 8080
 ```
 
-* Rootのみ外部ポート公開
+**prod**: コンテナ起動時に runserver を自動実行する場合は `docker-compose.prod.yml` を併用します。
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+```
+
+* Root のみポート **8080** を公開（8000 は他ライブラリと競合しうるため避けています）
 * 他サービスは内部ネットワークからのみ到達可能な想定です
 
 ### 3) 依存解決（ローカル）
@@ -127,13 +136,13 @@ poetry install
 リポジトリルートで実行します。
 
 ```bash
-# Root サービス（例: ポート 8000）
-poetry run python services/root/manage.py runserver 8000
+# Root サービス（ポート 8080。8000 は他ライブラリ競合を避けるため使用しません）
+poetry run python services/root/manage.py runserver 8080
 
-# 他サービスも同様
-poetry run python services/legislative/manage.py runserver 8001
-poetry run python services/judiciary/manage.py runserver 8002
-poetry run python services/executive/manage.py runserver 8003
+# 他サービスも同様（別ポートで起動）
+poetry run python services/legislative/manage.py runserver 8081
+poetry run python services/judiciary/manage.py runserver 8082
+poetry run python services/executive/manage.py runserver 8083
 ```
 
 ### 5) マイグレーション（例）

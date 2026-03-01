@@ -19,7 +19,7 @@ COPY services ./services
 RUN poetry config virtualenvs.create false \
   && poetry install --no-interaction
 
-# デフォルトは Root サービス（compose で上書き可能）
+# デフォルトは Root サービス（compose で上書き可能）。ポート 8080 で他ライブラリ競合を避ける
 ENV DJANGO_SETTINGS_MODULE=root.settings
-EXPOSE 8000
-CMD ["python", "services/root/manage.py", "runserver", "0.0.0.0:8000"]
+EXPOSE 8080
+CMD ["python", "services/root/manage.py", "runserver", "0.0.0.0:8080"]
