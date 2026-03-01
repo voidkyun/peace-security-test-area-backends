@@ -9,10 +9,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-legislative-change-me")
 
 INSTALLED_APPS = [
+    "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
+    "rest_framework",
     "shared.auth",
     "shared.proposals",
+    "shared.laws",
 ]
 
 MIDDLEWARE = [
@@ -23,7 +26,15 @@ MIDDLEWARE = [
 
 SERVICE_JWT_SECRET = os.environ.get("SERVICE_JWT_SECRET", "dev-service-jwt-secret-change-in-production")
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "legislative")
-SERVICE_JWT_EXEMPT_PATHS = ()
+# 法・法体系の参照 API（他サービスが references 存在確認に利用）。MVP では認証免除。
+SERVICE_JWT_EXEMPT_PATHS = ("/laws/", "/lawsets/")
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+}
 
 ROOT_URLCONF = "legislative.urls"
 

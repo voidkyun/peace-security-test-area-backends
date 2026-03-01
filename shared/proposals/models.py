@@ -54,6 +54,9 @@ class ProposalStatus:
 
 REQUIRED_APPROVALS = 2
 
+# 憲法の law_id（GENESIS 固定）。LAW_CHANGE では改正対象にできない（Issue #20）
+LAW_ID_CONST = "CONST"
+
 
 def compute_payload_hash(payload: dict) -> str:
     """payload の SHA256 ハッシュ（キーソート JSON）を返す。"""
@@ -95,11 +98,21 @@ class Proposal(models.Model):
     def __str__(self):
         return f"Proposal({self.proposal_id}, origin={self.origin}, status={self.status})"
 
+    def clean(self):
+        super().clean()
+        if self.kind == ProposalKind.LAW_CHANGE and self.payload:
+            law_id = self.payload.get("law_id")
+            if law_id == LAW_ID_CONST:
+                raise ValidationError(
+                    "憲法（CONST）は GENESIS 固定のため、LAW_CHANGE の対象にできません。"
+                )
+
     def save(self, *args, **kwargs):
         if self._state.adding and not self.proposal_id:
             self.proposal_id = uuid.uuid4()
         if not self.payload_hash and self.payload is not None:
             self.payload_hash = compute_payload_hash(self.payload)
+        self.clean()  # LAW_CHANGE で CONST 拒否など（full_clean は既存挙動を変えるため呼ばない）
         super().save(*args, **kwargs)
 
     def finalize(self):
