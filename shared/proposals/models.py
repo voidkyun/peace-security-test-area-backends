@@ -115,9 +115,20 @@ class Proposal(models.Model):
         self.clean()  # LAW_CHANGE で CONST 拒否など（full_clean は既存挙動を変えるため呼ばない）
         super().save(*args, **kwargs)
 
+    def _validate_finalize_approvals(self, origins_who_approved):
+        """承認2件・2系統の検証。"""
+        if len(origins_who_approved) != REQUIRED_APPROVALS:
+            raise FinalizeConflictError(
+                f"承認が{REQUIRED_APPROVALS}件必要です（現在 {len(origins_who_approved)} 件）。"
+            )
+        if self.origin in origins_who_approved:
+            raise FinalizeConflictError("発議元（origin）は承認に含めません。")
+        if len(set(origins_who_approved)) != REQUIRED_APPROVALS:
+            raise FinalizeConflictError("承認は異なる2系統から各1件必要です。")
+
     def finalize(self):
         """
-        確定処理。条件を満たす場合のみ FINALIZED にし、そうでなければ FinalizeConflictError。
+        確定処理（自 DB の approvals を参照）。条件を満たす場合のみ FINALIZED にし、そうでなければ FinalizeConflictError。
         - APPROVE が2件（origin 以外の2系統から各1件）
         - 期限内
         - 既に FINALIZED / EXPIRED でない
@@ -136,10 +147,30 @@ class Proposal(models.Model):
                 f"承認が{REQUIRED_APPROVALS}件必要です（現在 {approvals.count()} 件）。"
             )
         origins_who_approved = {a.by for a in approvals}
-        if self.origin in origins_who_approved:
-            raise FinalizeConflictError("発議元（origin）は承認に含めません。")
-        if len(origins_who_approved) != REQUIRED_APPROVALS:
-            raise FinalizeConflictError("承認は異なる2系統から各1件必要です。")
+        self._validate_finalize_approvals(origins_who_approved)
+        self.status = ProposalStatus.FINALIZED
+        self.finalized_at = timezone.now()
+        self.save(update_fields=["status", "finalized_at"])
+
+    def finalize_with_approvals(self, external_approvals):
+        """
+        他サービスから取得した承認リストで確定する（ハイブリッドモデル・Issue #10）。
+        external_approvals: list[dict] 各要素は {'by': str, 'reason': str, 'references': list}
+        """
+        if self.status == ProposalStatus.FINALIZED:
+            raise FinalizeConflictError("既に確定済みです。")
+        if self.status == ProposalStatus.EXPIRED:
+            raise FinalizeConflictError("期限切れのため確定できません。")
+        if self.status == ProposalStatus.REJECTED:
+            raise FinalizeConflictError("却下済みのため確定できません。")
+        if timezone.now() > self.expires_at:
+            raise FinalizeConflictError("期限切れのため確定できません。")
+        if len(external_approvals) != REQUIRED_APPROVALS:
+            raise FinalizeConflictError(
+                f"承認が{REQUIRED_APPROVALS}件必要です（現在 {len(external_approvals)} 件）。"
+            )
+        origins_who_approved = {a["by"] for a in external_approvals}
+        self._validate_finalize_approvals(origins_who_approved)
         self.status = ProposalStatus.FINALIZED
         self.finalized_at = timezone.now()
         self.save(update_fields=["status", "finalized_at"])

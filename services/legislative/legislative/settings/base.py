@@ -33,8 +33,11 @@ MIDDLEWARE = [
 
 SERVICE_JWT_SECRET = os.environ.get("SERVICE_JWT_SECRET", "dev-service-jwt-secret-change-in-production")
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "legislative")
-# 監査ログ送信先（Issue #8）。未設定時は送信しない。
+# 監査ログ・索引送信先（Issue #8, #10）。未設定時は送信しない。
 ROOT_SERVICE_URL = os.environ.get("ROOT_SERVICE_URL", "").rstrip("/")
+# 他サービス URL（finalize 時に承認取得用）
+JUDICIARY_SERVICE_URL = os.environ.get("JUDICIARY_SERVICE_URL", "").rstrip("/")
+EXECUTIVE_SERVICE_URL = os.environ.get("EXECUTIVE_SERVICE_URL", "").rstrip("/")
 # 法・法体系の参照 API および admin / Swagger。MVP では認証免除。
 SERVICE_JWT_EXEMPT_PATHS = ("/admin", "/laws/", "/lawsets/", "/schema", "/swagger")
 # /laws/ のうち JWT 必須にするプレフィックス（提案・確定は認証必須）

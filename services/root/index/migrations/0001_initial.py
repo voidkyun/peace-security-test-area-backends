@@ -1,0 +1,33 @@
+# Issue #10: Root Proposal Index (ProposalIndexEntry)
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = []
+
+    operations = [
+        migrations.CreateModel(
+            name="ProposalIndexEntry",
+            fields=[
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("proposal_id", models.UUIDField(db_index=True, editable=False, unique=True)),
+                ("kind", models.CharField(db_index=True, max_length=32)),
+                ("origin", models.CharField(db_index=True, max_length=32)),
+                ("status", models.CharField(db_index=True, max_length=32)),
+                ("payload", models.JSONField(default=dict)),
+                ("created_at", models.DateTimeField()),
+                ("expires_at", models.DateTimeField()),
+                ("finalized_at", models.DateTimeField(blank=True, null=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+            ],
+            options={
+                "verbose_name": "Proposal 索引",
+                "verbose_name_plural": "Proposal 索引",
+                "ordering": ["-created_at"],
+            },
+        ),
+    ]

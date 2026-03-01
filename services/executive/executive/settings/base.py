@@ -34,6 +34,8 @@ MIDDLEWARE = [
 SERVICE_JWT_SECRET = os.environ.get("SERVICE_JWT_SECRET", "dev-service-jwt-secret-change-in-production")
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "executive")
 ROOT_SERVICE_URL = os.environ.get("ROOT_SERVICE_URL", "").rstrip("/")
+JUDICIARY_SERVICE_URL = os.environ.get("JUDICIARY_SERVICE_URL", "").rstrip("/")
+LEGISLATIVE_SERVICE_URL = os.environ.get("LEGISLATIVE_SERVICE_URL", "").rstrip("/")
 SERVICE_JWT_EXEMPT_PATHS = ("/admin", "/schema", "/swagger")
 SERVICE_JWT_NO_EXEMPT_PREFIXES = ("/evaluations", "/exec/proposals")
 
