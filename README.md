@@ -68,6 +68,7 @@ infra/
 ```
 
 * `services/*` はそれぞれ独立したDjangoプロジェクト（分離デプロイ前提）
+* 各サービスの設定は `settings/base.py`（共通）・`settings/dev.py`（開発）・`settings/prod.py`（本番）に分割。Docker では `root.settings.dev` / `root.settings.prod` のように指定。
 * `shared/*` は共通の制度基盤（認証・監査・ID・共通スキーマ等）
 
 ---
@@ -99,13 +100,15 @@ infra/
 
 ### 1) 環境変数
 
-`.env.example` を `.env` にコピーし、必要値を設定します。
+`.env.example` を `.env` にコピーし、必要値を設定します。**Docker Compose 利用時は `.env` が必須です。**
 
 ```bash
 cp .env.example .env
 ```
 
-（初期段階では最低限DB接続情報があれば起動可能な想定です）
+- `SECRET_KEY`: 各 Django サービス用（開発時はそのままで可）
+- `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`: PostgreSQL 用（Docker では 4 サービスが共通の postgres コンテナを利用し、DB は root_db / legislative_db / judiciary_db / executive_db に分離）
+- `ALLOWED_HOSTS`: 本番（`docker-compose.prod.yml`）利用時は必須。カンマ区切りでホスト名を指定。
 
 ### 2) 起動（Docker Compose）
 
@@ -113,19 +116,26 @@ cp .env.example .env
 
 ```bash
 docker compose up --build
-# 例: docker compose exec root bash のあと python services/root/manage.py runserver 8080
-# 他サービスも同様（コンテナ内ではいずれも 8080、ホストからは 8081/8082/8083 でアクセス可能）
+# 例: docker compose exec root bash のあと、以下で runserver を起動する
+#      ※ Docker 内ではホストから接続できるよう、必ず 0.0.0.0 を指定すること（8080 だけだと 127.0.0.1 にしかバインドされずブラウザでつながらない）
+# python services/root/manage.py runserver 0.0.0.0:8080
+# 他サービスも同様（legislative / judiciary / executive はコンテナ内で runserver 0.0.0.0:8080 後、内部ネットワークで http://legislative:8080 等でアクセス可能）
 ```
 
-**prod**: コンテナ起動時に runserver を自動実行する場合は `docker-compose.prod.yml` を併用します。
+- **postgres**: 1 コンテナで 4 データベース（root_db, legislative_db, judiciary_db, executive_db）を用意。初回起動時に `infra/docker/init-dbs.sql` で自動作成。
+- **外部ポート公開は root のみ（8080）**。立法・司法・行政は内部ネットワーク限定で、他サービスや root コンテナからサービス名で HTTP アクセス可能。
+- **healthcheck**: postgres および各 Django サービスに設定済み。アプリは `manage.py check --database default` で DB 接続を確認。
+- 初回のみ、各サービスでマイグレーションを実行: `docker compose exec root python services/root/manage.py migrate` など。
+
+**prod**: 本番用は `docker-compose.prod.yml` を併用し、**gunicorn**（WSGI）で起動します。開発サーバー（runserver）は本番では使いません。
 
 ```bash
+# 本番では .env に ALLOWED_HOSTS を設定すること
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 ```
 
-* 各サービスのポート割り当て（dev で admin 等を触るとき用）:
-  - Root: **8080** / 立法(legislative): **8081** / 司法(judiciary): **8082** / 行政(executive): **8083**
-  - コンテナ内ではいずれも `runserver 8080`。ホストからは上記ポートでアクセス
+* 設定は各サービスで `settings.prod`（`DEBUG=False`、`ALLOWED_HOSTS` は環境変数必須）。
+* ポート: ホストからは **Root の 8080 のみ** 公開。立法・司法・行政はコンテナ内では 8080 で待ち受け、他コンテナからは `http://legislative:8080` 等でアクセス。
 
 ### 3) 依存解決（ローカル）
 

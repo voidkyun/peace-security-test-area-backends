@@ -1,11 +1,20 @@
-# prod: コンテナ起動時に runserver を自動実行する
+# prod: コンテナ起動時に gunicorn で WSGI サーバーを起動（runserver は開発用のため本番では使わない）
 # 利用例: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+# 本番では ALLOWED_HOSTS を環境変数で設定すること（各 services/*/settings/prod.py で必須）
 services:
   root:
-    command: ["python", "services/root/manage.py", "runserver", "0.0.0.0:8080"]
+    environment:
+      DJANGO_SETTINGS_MODULE: root.settings.prod
+    command: ["sh", "-c", "PYTHONPATH=/app/services/root exec gunicorn root.wsgi:application --bind 0.0.0.0:8080"]
   legislative:
-    command: ["python", "services/legislative/manage.py", "runserver", "0.0.0.0:8080"]
+    environment:
+      DJANGO_SETTINGS_MODULE: legislative.settings.prod
+    command: ["sh", "-c", "PYTHONPATH=/app/services/legislative exec gunicorn legislative.wsgi:application --bind 0.0.0.0:8080"]
   judiciary:
-    command: ["python", "services/judiciary/manage.py", "runserver", "0.0.0.0:8080"]
+    environment:
+      DJANGO_SETTINGS_MODULE: judiciary.settings.prod
+    command: ["sh", "-c", "PYTHONPATH=/app/services/judiciary exec gunicorn judiciary.wsgi:application --bind 0.0.0.0:8080"]
   executive:
-    command: ["python", "services/executive/manage.py", "runserver", "0.0.0.0:8080"]
+    environment:
+      DJANGO_SETTINGS_MODULE: executive.settings.prod
+    command: ["sh", "-c", "PYTHONPATH=/app/services/executive exec gunicorn executive.wsgi:application --bind 0.0.0.0:8080"]
