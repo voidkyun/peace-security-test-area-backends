@@ -12,6 +12,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "shared.auth",
+    "shared.proposals",
 ]
 
 MIDDLEWARE = [
