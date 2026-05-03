@@ -5,6 +5,8 @@ Service JWT 認証の動作確認（Issue #4）。
 - 不正 scope は 403
 - 正しい JWT + scope で 200
 """
+import uuid
+
 import pytest
 from django.conf import settings
 from django.test import Client
@@ -45,6 +47,7 @@ def test_root_without_jwt_returns_401(client):
     """JWT なしでルートにアクセスすると 401。"""
     response = client.get("/")
     assert response.status_code == 401
+    uuid.UUID(response["X-Request-Id"])
     data = response.json()
     assert "detail" in data
     assert "JWT" in data["detail"] or "token" in data["detail"].lower()
@@ -52,14 +55,33 @@ def test_root_without_jwt_returns_401(client):
 
 def test_root_with_invalid_token_returns_401(client):
     """不正トークンで 401。"""
-    response = client.get("/", HTTP_AUTHORIZATION="Bearer invalid-token")
+    request_id = "invalid-token-request"
+    response = client.get(
+        "/",
+        HTTP_AUTHORIZATION="Bearer invalid-token",
+        HTTP_X_REQUEST_ID=request_id,
+    )
     assert response.status_code == 401
+    assert response["X-Request-Id"] == request_id
 
 
 def test_root_with_valid_jwt_returns_200(client, valid_token):
     """有効な JWT でルートにアクセスすると 200。"""
+    request_id = "valid-token-request"
+    response = client.get(
+        "/",
+        HTTP_AUTHORIZATION=f"Bearer {valid_token}",
+        HTTP_X_REQUEST_ID=request_id,
+    )
+    assert response.status_code == 200
+    assert response["X-Request-Id"] == request_id
+
+
+def test_root_without_request_id_generates_uuid(client, valid_token):
+    """X-Request-Id 未指定時は UUID が生成される。"""
     response = client.get("/", HTTP_AUTHORIZATION=f"Bearer {valid_token}")
     assert response.status_code == 200
+    uuid.UUID(response["X-Request-Id"])
 
 
 def test_internal_example_without_scope_returns_403(client, token_without_scope):

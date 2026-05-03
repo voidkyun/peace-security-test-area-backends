@@ -210,7 +210,7 @@ class LawProposalCreateView(APIView):
             payload=payload,
             expires_at=expires_at,
         )
-        register_index(proposal)
+        register_index(proposal, request_id=request.request_id)
         return Response(
             {
                 "proposal_id": str(proposal.proposal_id),
@@ -252,8 +252,20 @@ class LawProposalFinalizeView(APIView):
         judiciary_url = getattr(settings, "JUDICIARY_SERVICE_URL", "").rstrip("/")
         executive_url = getattr(settings, "EXECUTIVE_SERVICE_URL", "").rstrip("/")
         external = []
-        external.extend(fetch_approvals_from_service(judiciary_url, id))
-        external.extend(fetch_approvals_from_service(executive_url, id))
+        external.extend(
+            fetch_approvals_from_service(
+                judiciary_url,
+                id,
+                request_id=request.request_id,
+            )
+        )
+        external.extend(
+            fetch_approvals_from_service(
+                executive_url,
+                id,
+                request_id=request.request_id,
+            )
+        )
         try:
             proposal.finalize_with_approvals(external)
         except FinalizeConflictError as e:
@@ -270,14 +282,22 @@ class LawProposalFinalizeView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         # 監査ログ送信
-        send_audit_event({
-            "event_type": "LAW_FINALIZED",
-            "proposal_id": str(proposal.proposal_id),
-            "lawset_id": new_lawset.lawset_id,
-            "version": new_lawset.version,
-            "effective_at": new_lawset.effective_at.isoformat(),
-        })
-        update_index_status(proposal.proposal_id, ProposalStatus.FINALIZED, proposal.finalized_at)
+        send_audit_event(
+            {
+                "event_type": "LAW_FINALIZED",
+                "proposal_id": str(proposal.proposal_id),
+                "lawset_id": new_lawset.lawset_id,
+                "version": new_lawset.version,
+                "effective_at": new_lawset.effective_at.isoformat(),
+            },
+            request_id=request.request_id,
+        )
+        update_index_status(
+            proposal.proposal_id,
+            ProposalStatus.FINALIZED,
+            proposal.finalized_at,
+            request_id=request.request_id,
+        )
         return Response(
             {
                 "proposal_id": str(proposal.proposal_id),

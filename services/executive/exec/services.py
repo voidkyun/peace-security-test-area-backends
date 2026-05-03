@@ -6,10 +6,20 @@ from django.conf import settings
 
 from shared.auth import issue_jwt
 from shared.auth.scopes import AUDIT_WRITE, INDEX_WRITE, PROPOSAL_FINALIZE
+from shared.tracing import REQUEST_ID_HEADER, get_current_request_id, normalize_request_id
 
 from .models import ExecutionQueueItem
 
 logger = logging.getLogger(__name__)
+
+
+def _request_id_headers(request_id=None):
+    current_request_id = normalize_request_id(request_id) or normalize_request_id(
+        get_current_request_id()
+    )
+    if not current_request_id:
+        return {}
+    return {REQUEST_ID_HEADER: current_request_id}
 
 
 def enqueue_execution(proposal_id):
@@ -23,7 +33,7 @@ def enqueue_execution(proposal_id):
     logger.info("実行キューに追加: proposal_id=%s", proposal_id)
 
 
-def send_audit_event(payload):
+def send_audit_event(payload, request_id=None):
     """
     Root サービスの /audit/events/ に監査イベントを POST する。
     ROOT_SERVICE_URL が未設定の場合は送信しない（開発時用）。
@@ -51,7 +61,11 @@ def send_audit_event(payload):
         resp = requests.post(
             url,
             json={"payload": payload},
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                **_request_id_headers(request_id),
+            },
             timeout=10,
         )
         if resp.status_code not in (200, 201):
@@ -64,7 +78,7 @@ def send_audit_event(payload):
         logger.warning("監査ログ送信エラー（接続失敗等）: %s", e)
 
 
-def register_index(proposal):
+def register_index(proposal, request_id=None):
     """Root の索引に Proposal を登録する（Issue #10）。"""
     base_url = getattr(settings, "ROOT_SERVICE_URL", "").rstrip("/")
     if not base_url:
@@ -96,7 +110,11 @@ def register_index(proposal):
         resp = requests.post(
             url,
             json=payload,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                **_request_id_headers(request_id),
+            },
             timeout=10,
         )
         if resp.status_code not in (200, 201):
@@ -107,7 +125,7 @@ def register_index(proposal):
         logger.warning("索引登録エラー: %s", e)
 
 
-def update_index_status(proposal_id, status, finalized_at=None):
+def update_index_status(proposal_id, status, finalized_at=None, request_id=None):
     """Root の索引の status を更新する（Issue #10）。"""
     base_url = getattr(settings, "ROOT_SERVICE_URL", "").rstrip("/")
     if not base_url:
@@ -133,7 +151,11 @@ def update_index_status(proposal_id, status, finalized_at=None):
         resp = requests.patch(
             url,
             json=payload,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                **_request_id_headers(request_id),
+            },
             timeout=10,
         )
         if resp.status_code != 200:
@@ -144,7 +166,7 @@ def update_index_status(proposal_id, status, finalized_at=None):
         logger.warning("索引更新エラー: %s", e)
 
 
-def fetch_approvals_from_service(base_url, proposal_id):
+def fetch_approvals_from_service(base_url, proposal_id, request_id=None):
     """他サービスの GET /approvals?proposal_id=xxx を呼び、承認リストを返す。"""
     if not base_url:
         return []
@@ -164,13 +186,18 @@ def fetch_approvals_from_service(base_url, proposal_id):
         resp = requests.get(
             url,
             params={"proposal_id": str(proposal_id)},
-            headers={"Authorization": f"Bearer {token}"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                **_request_id_headers(request_id),
+            },
             timeout=10,
         )
     except requests.exceptions.RequestException:
         return []
     if resp.status_code != 200:
-        logger.warning("承認取得失敗 %s: %s %s", base_url, resp.status_code, resp.text[:200])
+        logger.warning(
+            "承認取得失敗 %s: %s %s", base_url, resp.status_code, resp.text[:200]
+        )
         return []
     data = resp.json()
     if not isinstance(data, list):
@@ -178,5 +205,8 @@ def fetch_approvals_from_service(base_url, proposal_id):
     return [
         {"by": item["by"], "reason": item["reason"], "references": item["references"]}
         for item in data
-        if isinstance(item, dict) and "by" in item and "reason" in item and "references" in item
+        if isinstance(item, dict)
+        and "by" in item
+        and "reason" in item
+        and "references" in item
     ]

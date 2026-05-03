@@ -60,14 +60,18 @@ def test_exec_proposals_post_without_jwt_returns_401(client):
 def test_exec_proposals_post_with_scope_creates_proposal(client, token_proposal_write):
     """POST /exec/proposals/ で proposal.write ありなら EXEC_ACTION 提案が作成される。"""
     from unittest.mock import patch
-    with patch("exec.views.register_index"):
+    request_id = "exec-create-request"
+    with patch("exec.views.register_index") as mock_register_index:
         response = client.post(
             "/exec/proposals/",
             data={"payload": {"action": "NOTIFY", "target": "user-1"}},
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {token_proposal_write}",
+            HTTP_X_REQUEST_ID=request_id,
         )
     assert response.status_code == 201
+    assert response["X-Request-Id"] == request_id
+    assert mock_register_index.call_args.kwargs["request_id"] == request_id
     data = response.json()
     assert data["kind"] == ProposalKind.EXEC_ACTION
     assert data["origin"] == ProposalOrigin.EXECUTIVE
@@ -120,16 +124,23 @@ def test_exec_proposals_finalize_success_enqueues_and_returns_200(
         {"by": "JUDICIARY", "reason": "本法案は手続きおよび実体規定に適合する。", "references": ["憲法第81条"]},
         {"by": "LEGISLATIVE", "reason": "本法案は執行上問題ないと判断した。承認する。（20文字以上）", "references": ["憲法第72条"]},
     ]
+    request_id = "exec-finalize-request"
     with patch("exec.views.fetch_approvals_from_service") as mock_fetch, patch(
         "exec.views.update_index_status"
-    ):
+    ) as mock_update_index_status, patch("exec.views.send_audit_event") as mock_send_audit_event:
         mock_fetch.side_effect = [[external[0]], [external[1]]]
         response = client.post(
             f"/exec/proposals/{pid}/finalize/",
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {token_proposal_finalize}",
+            HTTP_X_REQUEST_ID=request_id,
         )
     assert response.status_code == 200
+    assert response["X-Request-Id"] == request_id
+    assert mock_fetch.call_args_list[0].kwargs["request_id"] == request_id
+    assert mock_fetch.call_args_list[1].kwargs["request_id"] == request_id
+    assert mock_send_audit_event.call_args.kwargs["request_id"] == request_id
+    assert mock_update_index_status.call_args.kwargs["request_id"] == request_id
     data = response.json()
     assert data["status"] == ProposalStatus.FINALIZED
     assert data["proposal_id"] == str(pid)
@@ -190,3 +201,56 @@ def test_exec_proposals_finalize_wrong_kind_returns_400(client, token_proposal_f
         HTTP_AUTHORIZATION=f"Bearer {token_proposal_finalize}",
     )
     assert response.status_code == 400
+
+
+def test_executive_internal_http_calls_propagate_request_id(settings):
+    """Root/他サービスへの内部 HTTP 呼び出しは X-Request-Id を伝播する。"""
+    from types import SimpleNamespace
+    from unittest.mock import Mock, patch
+
+    from exec.services import (
+        fetch_approvals_from_service,
+        register_index,
+        send_audit_event,
+        update_index_status,
+    )
+
+    settings.ROOT_SERVICE_URL = "http://root"
+    settings.SERVICE_JWT_SECRET = "test-secret"
+    settings.SERVICE_NAME = "executive"
+    request_id = "executive-service-request"
+    now = timezone.now()
+    proposal = SimpleNamespace(
+        proposal_id=uuid.uuid4(),
+        kind=ProposalKind.EXEC_ACTION,
+        origin=ProposalOrigin.EXECUTIVE,
+        status=ProposalStatus.PENDING,
+        payload={"action": "TRACE"},
+        created_at=now,
+        expires_at=now + timezone.timedelta(days=30),
+    )
+
+    with patch("requests.post") as mock_post, patch("requests.patch") as mock_patch, patch(
+        "requests.get"
+    ) as mock_get:
+        mock_post.return_value = Mock(status_code=201, text="")
+        mock_patch.return_value = Mock(status_code=200, text="")
+        mock_get.return_value = Mock(
+            status_code=200,
+            text="",
+            json=Mock(
+                return_value=[
+                    {"by": "JUDICIARY", "reason": "十分な理由を伴う承認です。", "references": ["REF"]}
+                ]
+            ),
+        )
+
+        send_audit_event({"event_type": "EXEC_ACTION_FINALIZED"}, request_id=request_id)
+        register_index(proposal, request_id=request_id)
+        update_index_status(proposal.proposal_id, ProposalStatus.FINALIZED, now, request_id=request_id)
+        fetch_approvals_from_service("http://judiciary", proposal.proposal_id, request_id=request_id)
+
+    for call in mock_post.call_args_list:
+        assert call.kwargs["headers"]["X-Request-Id"] == request_id
+    assert mock_patch.call_args.kwargs["headers"]["X-Request-Id"] == request_id
+    assert mock_get.call_args.kwargs["headers"]["X-Request-Id"] == request_id

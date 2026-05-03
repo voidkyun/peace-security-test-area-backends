@@ -139,7 +139,7 @@ class ExecProposalCreateView(APIView):
             payload=payload,
             expires_at=expires_at,
         )
-        register_index(proposal)
+        register_index(proposal, request_id=request.request_id)
         return Response(
             {
                 "proposal_id": str(proposal.proposal_id),
@@ -180,8 +180,20 @@ class ExecProposalFinalizeView(APIView):
         judiciary_url = getattr(settings, "JUDICIARY_SERVICE_URL", "").rstrip("/")
         legislative_url = getattr(settings, "LEGISLATIVE_SERVICE_URL", "").rstrip("/")
         external = []
-        external.extend(fetch_approvals_from_service(judiciary_url, id))
-        external.extend(fetch_approvals_from_service(legislative_url, id))
+        external.extend(
+            fetch_approvals_from_service(
+                judiciary_url,
+                id,
+                request_id=request.request_id,
+            )
+        )
+        external.extend(
+            fetch_approvals_from_service(
+                legislative_url,
+                id,
+                request_id=request.request_id,
+            )
+        )
         try:
             proposal.finalize_with_approvals(external)
         except FinalizeConflictError as e:
@@ -190,12 +202,20 @@ class ExecProposalFinalizeView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
         enqueue_execution(proposal.proposal_id)
-        send_audit_event({
-            "event_type": "EXEC_ACTION_FINALIZED",
-            "proposal_id": str(proposal.proposal_id),
-            "payload": proposal.payload,
-        })
-        update_index_status(proposal.proposal_id, ProposalStatus.FINALIZED, proposal.finalized_at)
+        send_audit_event(
+            {
+                "event_type": "EXEC_ACTION_FINALIZED",
+                "proposal_id": str(proposal.proposal_id),
+                "payload": proposal.payload,
+            },
+            request_id=request.request_id,
+        )
+        update_index_status(
+            proposal.proposal_id,
+            ProposalStatus.FINALIZED,
+            proposal.finalized_at,
+            request_id=request.request_id,
+        )
         return Response(
             {
                 "proposal_id": str(proposal.proposal_id),

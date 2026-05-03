@@ -34,6 +34,7 @@ class AuditEvent(models.Model):
     監査イベント。追記専用。prev_hash でチェーンし、event_hash で改ざん検出可能。
     """
 
+    request_id = models.CharField(max_length=64, db_index=True)
     prev_hash = models.CharField(max_length=64, blank=True, db_index=True)
     event_hash = models.CharField(max_length=64, unique=True, db_index=True)
     payload = models.JSONField(default=dict)
@@ -54,6 +55,8 @@ class AuditEvent(models.Model):
     def save(self, *args, **kwargs):
         if self.pk is not None:
             raise ValidationError("監査イベントは追記専用のため更新できません。")
+        if not self.request_id:
+            raise ValidationError("監査イベントには request_id が必要です。")
         if not self.event_hash:
             last = (
                 AuditEvent.objects.order_by("-created_at", "-id")

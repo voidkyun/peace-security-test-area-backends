@@ -7,8 +7,11 @@ class AuditEventCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AuditEvent
-        fields = ("payload", "signature")
-        extra_kwargs = {"signature": {"required": False, "allow_blank": True}}
+        fields = ("payload", "request_id", "signature")
+        extra_kwargs = {
+            "request_id": {"required": False, "allow_blank": True},
+            "signature": {"required": False, "allow_blank": True},
+        }
 
 
 class AuditEventReadSerializer(serializers.ModelSerializer):
@@ -16,5 +19,13 @@ class AuditEventReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AuditEvent
-        fields = ("id", "prev_hash", "event_hash", "payload", "signature", "created_at")
+        fields = (
+            "id",
+            "request_id",
+            "prev_hash",
+            "event_hash",
+            "payload",
+            "signature",
+            "created_at",
+        )
         read_only_fields = fields

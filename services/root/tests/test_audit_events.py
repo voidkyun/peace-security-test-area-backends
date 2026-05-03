@@ -1,6 +1,8 @@
 """
 監査イベント API とハッシュチェーン・append-only のテスト（Issue #5）。
 """
+import uuid
+
 import pytest
 from django.conf import settings
 from django.test import Client
@@ -51,6 +53,7 @@ def test_audit_events_post_without_jwt_returns_401(client):
     """POST /audit/events/ は JWT 必須。"""
     response = client.post("/audit/events/", data={"payload": {}}, content_type="application/json")
     assert response.status_code == 401
+    uuid.UUID(response["X-Request-Id"])
 
 
 @pytest.mark.django_db
@@ -83,14 +86,18 @@ def test_audit_events_post_without_audit_write_returns_403(client, token_read):
 @pytest.mark.django_db
 def test_audit_events_post_returns_201_and_chain(client, token_write):
     """POST で 1 件登録すると 201、prev_hash/event_hash が設定される。"""
+    request_id = "audit-request-1"
     response = client.post(
         "/audit/events/",
         data={"payload": {"action": "test", "id": 1}},
         content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {token_write}",
+        HTTP_X_REQUEST_ID=request_id,
     )
     assert response.status_code == 201
+    assert response["X-Request-Id"] == request_id
     data = response.json()
+    assert data["request_id"] == request_id
     assert data["prev_hash"] == ""
     assert len(data["event_hash"]) == 64
     assert data["payload"] == {"action": "test", "id": 1}
@@ -106,6 +113,7 @@ def test_audit_events_hash_chain(client, token_write):
         data={"payload": {"n": 1}},
         content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {token_write}",
+        HTTP_X_REQUEST_ID="audit-chain-1",
     )
     assert r1.status_code == 201
     h1 = r1.json()["event_hash"]
@@ -115,6 +123,7 @@ def test_audit_events_hash_chain(client, token_write):
         data={"payload": {"n": 2}},
         content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {token_write}",
+        HTTP_X_REQUEST_ID="audit-chain-2",
     )
     assert r2.status_code == 201
     data2 = r2.json()
@@ -130,6 +139,7 @@ def test_audit_events_list_returns_200(client, token_read_write, token_write):
         data={"payload": {"x": 1}},
         content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {token_write}",
+        HTTP_X_REQUEST_ID="audit-list-1",
     )
     response = client.get(
         "/audit/events/",
@@ -150,6 +160,7 @@ def test_audit_events_detail_returns_200(client, token_read_write, token_write):
         data={"payload": {"detail": "ok"}},
         content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {token_write}",
+        HTTP_X_REQUEST_ID="audit-detail-1",
     )
     assert r.status_code == 201
     eid = r.json()["id"]
@@ -169,6 +180,7 @@ def test_audit_events_detail_returns_200(client, token_read_write, token_write):
 def test_audit_event_append_only_no_update():
     """既存レコードの save（更新）は ValidationError。"""
     e = AuditEvent.objects.create(
+        request_id="audit-model-update",
         prev_hash="",
         event_hash="a" * 64,
         payload={"x": 1},
@@ -183,6 +195,7 @@ def test_audit_event_append_only_no_update():
 def test_audit_event_no_delete():
     """インスタンス delete は ValidationError。"""
     e = AuditEvent.objects.create(
+        request_id="audit-model-delete",
         prev_hash="",
         event_hash="b" * 64,
         payload={},

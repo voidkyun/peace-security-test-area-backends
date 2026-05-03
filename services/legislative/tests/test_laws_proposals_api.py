@@ -67,7 +67,8 @@ def test_laws_proposals_post_without_jwt_returns_401(client):
 def test_laws_proposals_post_with_scope_creates_proposal(client, token_proposal_write):
     """POST /laws/proposals/ で proposal.write ありなら LAW_CHANGE 提案が作成される。"""
     from unittest.mock import patch
-    with patch("legislative.views.register_index"):
+    request_id = "law-create-request"
+    with patch("legislative.views.register_index") as mock_register_index:
         response = client.post(
             "/laws/proposals/",
             data={
@@ -77,8 +78,11 @@ def test_laws_proposals_post_with_scope_creates_proposal(client, token_proposal_
             },
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {token_proposal_write}",
+            HTTP_X_REQUEST_ID=request_id,
         )
     assert response.status_code == 201
+    assert response["X-Request-Id"] == request_id
+    assert mock_register_index.call_args.kwargs["request_id"] == request_id
     data = response.json()
     assert data["kind"] == ProposalKind.LAW_CHANGE
     assert data["origin"] == ProposalOrigin.LEGISLATIVE
@@ -152,9 +156,12 @@ def test_laws_proposals_finalize_success_updates_lawset_version(
         {"by": "JUDICIARY", "reason": "本法案は手続きおよび実体規定に適合する。", "references": ["憲法第81条"]},
         {"by": "EXECUTIVE", "reason": "本法案は執行上問題ないと判断した。承認する。（20文字以上）", "references": ["憲法第72条"]},
     ]
+    request_id = "law-finalize-request"
     with patch("legislative.views.fetch_approvals_from_service") as mock_fetch, patch(
         "legislative.views.update_index_status"
-    ), patch("legislative.views.send_audit_event"):
+    ) as mock_update_index_status, patch(
+        "legislative.views.send_audit_event"
+    ) as mock_send_audit_event:
         mock_fetch.side_effect = [
             [external[0]],
             [external[1]],
@@ -163,8 +170,14 @@ def test_laws_proposals_finalize_success_updates_lawset_version(
             f"/laws/proposals/{pid}/finalize/",
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {token_proposal_finalize}",
+            HTTP_X_REQUEST_ID=request_id,
         )
     assert response.status_code == 200
+    assert response["X-Request-Id"] == request_id
+    assert mock_fetch.call_args_list[0].kwargs["request_id"] == request_id
+    assert mock_fetch.call_args_list[1].kwargs["request_id"] == request_id
+    assert mock_send_audit_event.call_args.kwargs["request_id"] == request_id
+    assert mock_update_index_status.call_args.kwargs["request_id"] == request_id
     data = response.json()
     assert data["status"] == ProposalStatus.FINALIZED
     assert data["lawset_id"] == LAWSET_ID_AMATERRACE
@@ -211,3 +224,57 @@ def test_laws_proposals_finalize_not_found_returns_404(client, token_proposal_fi
         HTTP_AUTHORIZATION=f"Bearer {token_proposal_finalize}",
     )
     assert response.status_code == 404
+
+
+def test_legislative_internal_http_calls_propagate_request_id(settings):
+    """Root/他サービスへの内部 HTTP 呼び出しは X-Request-Id を伝播する。"""
+    import uuid
+    from types import SimpleNamespace
+    from unittest.mock import Mock, patch
+
+    from laws.services import (
+        fetch_approvals_from_service,
+        register_index,
+        send_audit_event,
+        update_index_status,
+    )
+
+    settings.ROOT_SERVICE_URL = "http://root"
+    settings.SERVICE_JWT_SECRET = "test-secret"
+    settings.SERVICE_NAME = "legislative"
+    request_id = "legislative-service-request"
+    now = timezone.now()
+    proposal = SimpleNamespace(
+        proposal_id=uuid.uuid4(),
+        kind=ProposalKind.LAW_CHANGE,
+        origin=ProposalOrigin.LEGISLATIVE,
+        status=ProposalStatus.PENDING,
+        payload={"law_id": "L-900", "title": "伝播確認"},
+        created_at=now,
+        expires_at=now + timezone.timedelta(days=30),
+    )
+
+    with patch("requests.post") as mock_post, patch("requests.patch") as mock_patch, patch(
+        "requests.get"
+    ) as mock_get:
+        mock_post.return_value = Mock(status_code=201, text="")
+        mock_patch.return_value = Mock(status_code=200, text="")
+        mock_get.return_value = Mock(
+            status_code=200,
+            text="",
+            json=Mock(
+                return_value=[
+                    {"by": "JUDICIARY", "reason": "十分な理由を伴う承認です。", "references": ["REF"]}
+                ]
+            ),
+        )
+
+        send_audit_event({"event_type": "LAW_FINALIZED"}, request_id=request_id)
+        register_index(proposal, request_id=request_id)
+        update_index_status(proposal.proposal_id, ProposalStatus.FINALIZED, now, request_id=request_id)
+        fetch_approvals_from_service("http://judiciary", proposal.proposal_id, request_id=request_id)
+
+    for call in mock_post.call_args_list:
+        assert call.kwargs["headers"]["X-Request-Id"] == request_id
+    assert mock_patch.call_args.kwargs["headers"]["X-Request-Id"] == request_id
+    assert mock_get.call_args.kwargs["headers"]["X-Request-Id"] == request_id

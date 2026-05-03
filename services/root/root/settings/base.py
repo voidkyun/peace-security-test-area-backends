@@ -24,6 +24,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "shared.tracing.middleware.RequestTracingMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -56,6 +57,32 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "平和保障試験区 Root サービス API（公開窓口・監査・Proposal 索引）",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "request_id": {
+            "()": "shared.tracing.middleware.RequestIdLogFilter",
+        },
+    },
+    "formatters": {
+        "standard": {
+            "format": "%(levelname)s %(asctime)s %(name)s request_id=%(request_id)s %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["request_id"],
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.environ.get("LOG_LEVEL", "INFO"),
+    },
 }
 
 TEMPLATES = [
