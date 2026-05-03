@@ -7,6 +7,7 @@ from drf_spectacular.utils import extend_schema
 
 from shared.auth.permissions import RequireScope
 from shared.auth.scopes import AUDIT_READ, AUDIT_WRITE
+from shared.tracing import get_current_request_id, normalize_request_id
 
 from .models import AuditEvent
 from .permissions import RequireAuditScopeForMethod
@@ -44,7 +45,17 @@ class AuditEventListCreateView(APIView):
     def post(self, request):
         serializer = AuditEventCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        request_id = (
+            normalize_request_id(getattr(request, "request_id", ""))
+            or normalize_request_id(get_current_request_id())
+            or normalize_request_id(serializer.validated_data.get("request_id"))
+        )
+        if not request_id:
+            return Response(
+                {"request_id": ["request_id is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer.save(request_id=request_id)
         read_serializer = AuditEventReadSerializer(instance=serializer.instance)
         return Response(read_serializer.data, status=status.HTTP_201_CREATED)
 
